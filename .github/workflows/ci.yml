@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      POSTGRES_DB: cfi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: local_ci_admin_only
+      CFI_MIGRATOR_PASSWORD: local_ci_migrator_only
+      CFI_RUNTIME_PASSWORD: local_ci_runtime_only
+      CFI_TEST_PASSWORD: local_ci_test_only
+      DATABASE_URL: postgresql://cfi_runtime:local_ci_runtime_only@localhost:5432/cfi?schema=public
+      DIRECT_DATABASE_URL: postgresql://cfi_migrator:local_ci_migrator_only@localhost:5432/cfi?schema=public
+      TEST_DATABASE_URL: postgresql://cfi_test:local_ci_test_only@localhost:5432/cfi?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run prisma:validate
+      - run: npm run build
+      - run: docker compose up -d --wait postgres
+      - run: npm run db:migrate:deploy
+      - run: npm test
+      - run: npm run openapi:generate
+      - run: git diff --exit-code -- openapi/openapi.json

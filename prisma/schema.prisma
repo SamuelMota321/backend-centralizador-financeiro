@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum IdentityProvider {
+  AUTH0 @map("auth0")
+
+  @@map("identity_provider")
+}
+
+enum AccountOrigin {
+  MANUAL    @map("manual")
+  CONNECTED @map("connected")
+
+  @@map("account_origin")
+}
+
+enum AccountExternalProvider {
+  PLUGGY @map("pluggy")
+
+  @@map("account_external_provider")
+}
+
+enum AccountType {
+  CHECKING    @map("checking")
+  SAVINGS     @map("savings")
+  PAYMENT     @map("payment")
+  CASH        @map("cash")
+  CREDIT_CARD @map("credit_card")
+  INVESTMENT  @map("investment")
+  OTHER       @map("other")
+
+  @@map("account_type")
+}
+
+model Tenant {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user      User?
+  accounts  Account[]
+
+  @@map("tenants")
+}
+
+model User {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String         @unique(map: "users_tenant_id_key") @map("tenant_id") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "users_tenant_id_fkey")
+  identityLinks IdentityLink[]
+
+  @@map("users")
+}
+
+model IdentityLink {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  provider  IdentityProvider
+  issuer    String           @db.VarChar(255)
+  subject   String           @db.VarChar(255)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "identity_links_user_id_fkey")
+
+  @@unique([issuer, subject], map: "identity_links_issuer_subject_key")
+  @@index([userId], map: "identity_links_user_id_idx")
+  @@map("identity_links")
+}
+
+model Account {
+  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String                   @map("tenant_id") @db.Uuid
+  name                 String                   @db.VarChar(100)
+  type                 AccountType
+  origin               AccountOrigin            @default(MANUAL)
+  institutionName      String?                  @map("institution_name") @db.VarChar(120)
+  initialBalance       Decimal                  @map("initial_balance") @db.Decimal(19, 2)
+  initialBalanceAsOf   DateTime                 @map("initial_balance_as_of") @db.Date
+  currencyCode         String                   @default("BRL") @map("currency_code") @db.VarChar(3)
+  externalProvider     AccountExternalProvider? @map("external_provider")
+  externalAccountId    String?                  @map("external_account_id") @db.VarChar(255)
+  archivedAt           DateTime?                @map("archived_at") @db.Timestamptz(3)
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "accounts_tenant_id_fkey")
+
+  @@unique([tenantId, externalProvider, externalAccountId], map: "accounts_external_identity_key")
+  @@index([tenantId, archivedAt], map: "accounts_tenant_id_archived_at_idx")
+  @@index([tenantId, type], map: "accounts_tenant_id_type_idx")
+  @@map("accounts")
+}

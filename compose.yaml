@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      CFI_MIGRATOR_PASSWORD: ${CFI_MIGRATOR_PASSWORD:?Set CFI_MIGRATOR_PASSWORD in .env}
+      CFI_RUNTIME_PASSWORD: ${CFI_RUNTIME_PASSWORD:?Set CFI_RUNTIME_PASSWORD in .env}
+      CFI_TEST_PASSWORD: ${CFI_TEST_PASSWORD:?Set CFI_TEST_PASSWORD in .env}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init/001-bootstrap-roles.sh:/docker-entrypoint-initdb.d/001-bootstrap-roles.sh:ro
+      - ./scripts:/workspace/scripts:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+      target: development
+    environment:
+      DIRECT_DATABASE_URL: postgresql://cfi_migrator:${CFI_MIGRATOR_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+    command: npm run db:migrate:deploy
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://cfi_runtime:${CFI_RUNTIME_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+    ports:
+      - '3000:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
