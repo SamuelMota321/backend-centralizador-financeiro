@@ -56,6 +56,7 @@ export const manualAccountInputSchema = z
         });
       }
     }),
+    confirmPossibleDuplicate: z.boolean().default(false),
   })
   .strict();
 

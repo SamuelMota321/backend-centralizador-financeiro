@@ -39,6 +39,8 @@ services:
       NODE_ENV: development
       PORT: 3000
       DATABASE_URL: postgresql://cfi_runtime:${CFI_RUNTIME_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      AUTH0_ISSUER_BASE_URL: ${AUTH0_ISSUER_BASE_URL:?Set AUTH0_ISSUER_BASE_URL in .env}
+      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:?Set AUTH0_AUDIENCE in .env}
     ports:
       - '3000:3000'
     depends_on:

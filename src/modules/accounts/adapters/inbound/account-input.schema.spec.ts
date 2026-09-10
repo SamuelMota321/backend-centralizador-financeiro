@@ -12,6 +12,7 @@ describe('manualAccountInputSchema', () => {
     });
     expect(result.name).toBe('Conta Principal');
     expect(result.institutionName).toBeNull();
+    expect(result.confirmPossibleDuplicate).toBe(false);
   });
 
   it('rejects unknown fields and invalid precision', () => {
@@ -23,5 +24,16 @@ describe('manualAccountInputSchema', () => {
       tenantId: 'client-controlled',
     });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts explicit duplicate confirmation', () => {
+    const result = manualAccountInputSchema.parse({
+      name: 'Conta Principal',
+      type: 'checking',
+      initialBalance: '10.50',
+      initialBalanceAsOf: '2000-01-01',
+      confirmPossibleDuplicate: true,
+    });
+    expect(result.confirmPossibleDuplicate).toBe(true);
   });
 });

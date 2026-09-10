@@ -1,0 +1,162 @@
+import { Injectable } from '@nestjs/common';
+import {
+  AccountOrigin as PrismaAccountOrigin,
+  AccountType as PrismaAccountType,
+  Prisma,
+} from '../../../../generated/prisma/client.js';
+import { PrismaTenantTransaction } from '../../../../infrastructure/database/prisma-tenant-transaction.js';
+import type { TenantContext } from '../../../../shared/application/tenant-context.js';
+import type {
+  AccountView,
+  DuplicateCandidate,
+} from '../../application/account-view.js';
+import type {
+  AccountsRepository,
+  TenantAccountsRepository,
+} from '../../application/ports/accounts.repository.port.js';
+import type { Account } from '../../domain/account.js';
+import type { AccountType } from '../../domain/account-type.js';
+
+const accountSelect = {
+  id: true,
+  name: true,
+  type: true,
+  origin: true,
+  institutionName: true,
+  initialBalance: true,
+  initialBalanceAsOf: true,
+  currencyCode: true,
+  archivedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.AccountSelect;
+
+type AccountRecord = Prisma.AccountGetPayload<{ select: typeof accountSelect }>;
+
+const TO_PRISMA_TYPE: Record<AccountType, PrismaAccountType> = {
+  checking: PrismaAccountType.CHECKING,
+  savings: PrismaAccountType.SAVINGS,
+  payment: PrismaAccountType.PAYMENT,
+  cash: PrismaAccountType.CASH,
+  credit_card: PrismaAccountType.CREDIT_CARD,
+  investment: PrismaAccountType.INVESTMENT,
+  other: PrismaAccountType.OTHER,
+};
+
+const FROM_PRISMA_TYPE: Record<PrismaAccountType, AccountType> = {
+  CHECKING: 'checking',
+  SAVINGS: 'savings',
+  PAYMENT: 'payment',
+  CASH: 'cash',
+  CREDIT_CARD: 'credit_card',
+  INVESTMENT: 'investment',
+  OTHER: 'other',
+};
+
+class PrismaTenantAccountsRepository implements TenantAccountsRepository {
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly context: TenantContext,
+  ) {}
+
+  async findPossibleConnectedDuplicates(
+    account: Account,
+  ): Promise<DuplicateCandidate[]> {
+    const records = await this.transaction.account.findMany({
+      where: {
+        tenantId: this.context.tenantId,
+        archivedAt: null,
+        origin: PrismaAccountOrigin.CONNECTED,
+        name: account.props.name,
+        type: TO_PRISMA_TYPE[account.props.type],
+        institutionName: account.props.institutionName,
+      },
+      select: accountSelect,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    return records.map(toDuplicateCandidate);
+  }
+
+  async createManual(account: Account): Promise<AccountView> {
+    const record = await this.transaction.account.create({
+      data: {
+        tenantId: this.context.tenantId,
+        name: account.props.name,
+        type: TO_PRISMA_TYPE[account.props.type],
+        origin: PrismaAccountOrigin.MANUAL,
+        institutionName: account.props.institutionName,
+        initialBalance: account.props.initialBalance.toDecimal(),
+        initialBalanceAsOf: new Date(
+          `${account.props.initialBalanceAsOf.value}T00:00:00.000Z`,
+        ),
+        currencyCode: account.props.currencyCode,
+        externalProvider: null,
+        externalAccountId: null,
+      },
+      select: accountSelect,
+    });
+    return toAccountView(record);
+  }
+
+  countActive(): Promise<number> {
+    return this.transaction.account.count({
+      where: { tenantId: this.context.tenantId, archivedAt: null },
+    });
+  }
+
+  async findActive(offset: number, limit: number): Promise<AccountView[]> {
+    const records = await this.transaction.account.findMany({
+      where: { tenantId: this.context.tenantId, archivedAt: null },
+      select: accountSelect,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: offset,
+      take: limit,
+    });
+    return records.map(toAccountView);
+  }
+}
+
+@Injectable()
+export class PrismaAccountsRepository implements AccountsRepository {
+  constructor(private readonly tenantTransaction: PrismaTenantTransaction) {}
+
+  withTenant<Result>(
+    context: TenantContext,
+    operation: (repository: TenantAccountsRepository) => Promise<Result>,
+  ): Promise<Result> {
+    return this.tenantTransaction.run(context, (transaction) =>
+      operation(new PrismaTenantAccountsRepository(transaction, context)),
+    );
+  }
+}
+
+function toAccountView(record: AccountRecord): AccountView {
+  if (record.currencyCode !== 'BRL') {
+    throw new Error('Unsupported account currency.');
+  }
+  return {
+    id: record.id,
+    name: record.name,
+    type: FROM_PRISMA_TYPE[record.type],
+    origin:
+      record.origin === PrismaAccountOrigin.MANUAL ? 'manual' : 'connected',
+    institutionName: record.institutionName,
+    initialBalance: record.initialBalance.toFixed(2),
+    initialBalanceAsOf: record.initialBalanceAsOf.toISOString().slice(0, 10),
+    currencyCode: record.currencyCode,
+    archivedAt: record.archivedAt?.toISOString() ?? null,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+  };
+}
+
+function toDuplicateCandidate(record: AccountRecord): DuplicateCandidate {
+  const view = toAccountView(record);
+  return {
+    id: view.id,
+    name: view.name,
+    type: view.type,
+    origin: view.origin,
+    institutionName: view.institutionName,
+  };
+}

@@ -18,9 +18,13 @@ async function bootstrap(): Promise<void> {
   const openApiConfig = new DocumentBuilder()
     .setTitle('Centralizador Financeiro API')
     .setDescription(
-      'Backend REST foundation for the academic financial-management MVP.',
+      'Authenticated accounts API for the academic financial-management MVP.',
     )
     .setVersion('1.0')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'auth0',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, openApiConfig);
   SwaggerModule.setup('api/v1/docs', app, document, {

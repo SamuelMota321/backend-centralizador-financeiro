@@ -37,15 +37,813 @@
         "summary": "Verify database connectivity and runtime-role safety",
         "tags": ["health"]
       }
+    },
+    "/api/v1/accounts": {
+      "post": {
+        "operationId": "AccountsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "type",
+                  "initialBalance",
+                  "initialBalanceAsOf"
+                ],
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "checking",
+                      "savings",
+                      "payment",
+                      "cash",
+                      "credit_card",
+                      "investment",
+                      "other"
+                    ]
+                  },
+                  "institutionName": { "type": "string", "nullable": true },
+                  "initialBalance": { "type": "string", "example": "1500.00" },
+                  "initialBalanceAsOf": { "type": "string", "format": "date" },
+                  "confirmPossibleDuplicate": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "origin",
+                    "institutionName",
+                    "initialBalance",
+                    "initialBalanceAsOf",
+                    "currencyCode",
+                    "archivedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "name": { "type": "string" },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "checking",
+                        "savings",
+                        "payment",
+                        "cash",
+                        "credit_card",
+                        "investment",
+                        "other"
+                      ]
+                    },
+                    "origin": {
+                      "type": "string",
+                      "enum": ["manual", "connected"]
+                    },
+                    "institutionName": { "type": "string", "nullable": true },
+                    "initialBalance": {
+                      "type": "string",
+                      "pattern": "^-?(?:0|[1-9]\\d*)\\.\\d{2}$"
+                    },
+                    "initialBalanceAsOf": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "currencyCode": { "type": "string", "enum": ["BRL"] },
+                    "archivedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Create a manual account",
+        "tags": ["accounts"]
+      },
+      "get": {
+        "operationId": "AccountsController_list",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": { "example": 20, "type": "number" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": { "example": 1, "type": "number" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["items", "page", "pageSize", "total"],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName",
+                          "initialBalance",
+                          "initialBalanceAsOf",
+                          "currencyCode",
+                          "archivedAt",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": {
+                            "type": "string",
+                            "enum": ["manual", "connected"]
+                          },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "initialBalance": {
+                            "type": "string",
+                            "pattern": "^-?(?:0|[1-9]\\d*)\\.\\d{2}$"
+                          },
+                          "initialBalanceAsOf": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "currencyCode": { "type": "string", "enum": ["BRL"] },
+                          "archivedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "page": { "type": "integer", "minimum": 1 },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "total": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "List active accounts for the authenticated tenant",
+        "tags": ["accounts"]
+      }
     }
   },
   "info": {
     "title": "Centralizador Financeiro API",
-    "description": "Backend REST foundation for the academic financial-management MVP.",
+    "description": "Authenticated accounts API for the academic financial-management MVP.",
     "version": "1.0",
     "contact": {}
   },
   "tags": [],
   "servers": [],
-  "components": { "schemas": {} }
+  "components": {
+    "securitySchemes": {
+      "auth0": { "scheme": "bearer", "bearerFormat": "JWT", "type": "http" }
+    },
+    "schemas": {}
+  }
 }

@@ -1,6 +1,6 @@
 # Centralizador Financeiro — Backend
 
-Backend NestJS do MVP acadêmico. Esta fundação cobre S1-02 e S1-03: execução local, Prisma/PostgreSQL, `/api/v1`, módulos Identity/Accounts, modelo inicial e RLS. Autenticação Auth0 e CRUD de contas pertencem às fases posteriores.
+Backend NestJS do MVP acadêmico. Inclui execução local, Prisma/PostgreSQL, `/api/v1`, autenticação Auth0, provisionamento de identidade, contas e isolamento por tenant com RLS.
 
 ## Requisitos
 
@@ -10,10 +10,12 @@ Backend NestJS do MVP acadêmico. Esta fundação cobre S1-02 e S1-03: execuçã
 
 ## Execução local reproduzível
 
-1. Copie `.env.example` para `.env` e substitua todos os valores `replace_me` por segredos exclusivamente locais.
+1. Copie `.env.example` para `.env`, substitua todos os valores `replace_me` por segredos exclusivamente locais e configure o issuer e a audiência da API no Auth0.
 2. Instale dependências com `npm ci`.
 3. Execute `docker compose up --build --wait`.
 4. Consulte `http://localhost:3000/api/v1/health/live`, `/health/ready` ou `/docs` sob o mesmo prefixo.
+
+Os endpoints de contas exigem um access token em `Authorization: Bearer <token>`. ID tokens não são aceitos.
 
 O Compose cria um PostgreSQL local isolado, provisiona os papéis e aplica migrations antes de iniciar a API. Ele não acessa Neon.
 

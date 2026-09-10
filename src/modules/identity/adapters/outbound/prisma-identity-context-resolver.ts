@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import type { IdentityContextResolver } from '../../application/ports/identity-context-resolver.port.js';
 import type { ExternalIdentity } from '../../domain/external-identity.js';
 import type { TenantContext } from '../../../../shared/application/tenant-context.js';
+import { assertTenantContext } from '../../../../shared/application/tenant-context.js';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service.js';
+import { IdentityContextUnavailable } from '../../domain/identity.errors.js';
 
 type ResolvedIdentityRow = Readonly<{
   user_id: string;
@@ -24,8 +26,12 @@ export class PrismaIdentityContextResolver implements IdentityContextResolver {
     `;
     const row = rows[0];
     if (!row) {
-      throw new Error('Identity resolution returned no context.');
+      throw new IdentityContextUnavailable(
+        'Identity resolution returned no context.',
+      );
     }
-    return { userId: row.user_id, tenantId: row.tenant_id };
+    const context = { userId: row.user_id, tenantId: row.tenant_id };
+    assertTenantContext(context);
+    return context;
   }
 }

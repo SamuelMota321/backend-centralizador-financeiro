@@ -5,3 +5,7 @@ export class InvalidExternalIdentity extends Error {
 export class IdentityAlreadyLinked extends Error {
   override readonly name = 'IdentityAlreadyLinked';
 }
+
+export class IdentityContextUnavailable extends Error {
+  override readonly name = 'IdentityContextUnavailable';
+}
