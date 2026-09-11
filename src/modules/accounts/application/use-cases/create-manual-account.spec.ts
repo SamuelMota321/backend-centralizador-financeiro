@@ -46,6 +46,9 @@ function createRepository(candidates: DuplicateCandidate[] = []) {
     createManual,
     countActive: vi.fn(() => Promise.resolve(0)),
     findActive: vi.fn(() => Promise.resolve([])),
+    findByIdForUpdate: vi.fn(() => Promise.resolve(null)),
+    update: vi.fn(() => Promise.resolve(view)),
+    deactivate: vi.fn(() => Promise.resolve(view)),
   };
   const repository: AccountsRepository = {
     withTenant: async (_context, operation) => operation(tenantRepository),

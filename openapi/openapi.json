@@ -41,7 +41,14 @@
     "/api/v1/accounts": {
       "post": {
         "operationId": "AccountsController_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -83,6 +90,12 @@
         },
         "responses": {
           "201": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -143,6 +156,12 @@
             }
           },
           "400": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -207,6 +226,12 @@
             }
           },
           "401": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -271,6 +296,12 @@
             }
           },
           "403": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -335,6 +366,12 @@
             }
           },
           "409": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -399,6 +436,12 @@
             }
           },
           "500": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -481,10 +524,22 @@
             "required": false,
             "in": "query",
             "schema": { "example": 1, "type": "number" }
+          },
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
           }
         ],
         "responses": {
           "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -570,6 +625,12 @@
             }
           },
           "400": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -634,6 +695,12 @@
             }
           },
           "401": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -698,6 +765,12 @@
             }
           },
           "403": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -762,6 +835,12 @@
             }
           },
           "500": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -828,6 +907,989 @@
         },
         "security": [{ "auth0": [] }],
         "summary": "List active accounts for the authenticated tenant",
+        "tags": ["accounts"]
+      }
+    },
+    "/api/v1/accounts/{accountId}": {
+      "patch": {
+        "operationId": "AccountsController_update",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "accountId",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "checking",
+                      "savings",
+                      "payment",
+                      "cash",
+                      "credit_card",
+                      "investment",
+                      "other"
+                    ]
+                  },
+                  "institutionName": { "type": "string", "nullable": true },
+                  "initialBalance": { "type": "string", "example": "1250.00" },
+                  "initialBalanceAsOf": { "type": "string", "format": "date" },
+                  "confirmPossibleDuplicate": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "origin",
+                    "institutionName",
+                    "initialBalance",
+                    "initialBalanceAsOf",
+                    "currencyCode",
+                    "archivedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "name": { "type": "string" },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "checking",
+                        "savings",
+                        "payment",
+                        "cash",
+                        "credit_card",
+                        "investment",
+                        "other"
+                      ]
+                    },
+                    "origin": {
+                      "type": "string",
+                      "enum": ["manual", "connected"]
+                    },
+                    "institutionName": { "type": "string", "nullable": true },
+                    "initialBalance": {
+                      "type": "string",
+                      "pattern": "^-?(?:0|[1-9]\\d*)\\.\\d{2}$"
+                    },
+                    "initialBalanceAsOf": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "currencyCode": { "type": "string", "enum": ["BRL"] },
+                    "archivedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Update an account",
+        "tags": ["accounts"]
+      }
+    },
+    "/api/v1/accounts/{accountId}/deactivate": {
+      "post": {
+        "operationId": "AccountsController_deactivate",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "accountId",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "origin",
+                    "institutionName",
+                    "initialBalance",
+                    "initialBalanceAsOf",
+                    "currencyCode",
+                    "archivedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "name": { "type": "string" },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "checking",
+                        "savings",
+                        "payment",
+                        "cash",
+                        "credit_card",
+                        "investment",
+                        "other"
+                      ]
+                    },
+                    "origin": {
+                      "type": "string",
+                      "enum": ["manual", "connected"]
+                    },
+                    "institutionName": { "type": "string", "nullable": true },
+                    "initialBalance": {
+                      "type": "string",
+                      "pattern": "^-?(?:0|[1-9]\\d*)\\.\\d{2}$"
+                    },
+                    "initialBalanceAsOf": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "currencyCode": { "type": "string", "enum": ["BRL"] },
+                    "archivedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Deactivate an account",
         "tags": ["accounts"]
       }
     }

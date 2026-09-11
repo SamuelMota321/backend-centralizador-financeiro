@@ -10,6 +10,12 @@ import type { Response } from 'express';
 import { ZodError, type ZodIssue } from 'zod';
 import { PossibleConnectedAccountDuplicate } from '../../application/accounts.errors.js';
 import { IdentityContextUnavailable } from '../../../identity/domain/identity.errors.js';
+import {
+  AccountArchived,
+  AccountNotFound,
+  BalanceReferencePairRequired,
+  ConnectedAccountReadOnly,
+} from '../../domain/account.errors.js';
 
 type ValidationProblem = Readonly<{
   path: string;
@@ -86,6 +92,49 @@ export class AccountProblemDetailsFilter implements ExceptionFilter {
         candidates: exception.candidates,
       };
     }
+    if (exception instanceof AccountNotFound) {
+      return {
+        type: 'about:blank',
+        title: 'Account not found',
+        status: 404,
+        code: 'ACCOUNT_NOT_FOUND',
+        detail: 'The requested account was not found.',
+      };
+    }
+    if (exception instanceof AccountArchived) {
+      return {
+        type: 'about:blank',
+        title: 'Account archived',
+        status: 409,
+        code: 'ACCOUNT_ARCHIVED',
+        detail: 'Archived accounts cannot be updated.',
+      };
+    }
+    if (exception instanceof ConnectedAccountReadOnly) {
+      return {
+        type: 'about:blank',
+        title: 'Connected account is read-only',
+        status: 409,
+        code: 'CONNECTED_ACCOUNT_READ_ONLY',
+        detail: 'Connected accounts cannot be updated here.',
+      };
+    }
+    if (exception instanceof BalanceReferencePairRequired) {
+      return {
+        type: 'about:blank',
+        title: 'Invalid request',
+        status: 400,
+        code: 'INVALID_REQUEST',
+        detail: 'Initial balance and reference date must be provided together.',
+        errors: [
+          {
+            path: 'initialBalance',
+            code: 'BALANCE_REFERENCE_PAIR_REQUIRED',
+            message: 'Both balance reference fields are required.',
+          },
+        ],
+      };
+    }
 
     this.logger.error(sanitizeError(exception));
     return {
@@ -102,12 +151,17 @@ function toValidationProblems(issue: ZodIssue): ValidationProblem[] {
   if (issue.code === 'unrecognized_keys') {
     return issue.keys.map((key) => ({
       path: key,
-      code: 'UNKNOWN_FIELD',
-      message: 'Unknown field.',
+      code: IMMUTABLE_FIELDS.has(key) ? 'IMMUTABLE_FIELD' : 'UNKNOWN_FIELD',
+      message: IMMUTABLE_FIELDS.has(key)
+        ? 'Field cannot be changed.'
+        : 'Unknown field.',
     }));
   }
 
   const path = issue.path.map(String).join('.') || '$';
+  if (issue.code === 'custom' && SAFE_VALIDATION_CODES.has(issue.message)) {
+    return [{ path, code: issue.message, message: 'Invalid request.' }];
+  }
   const code =
     issue.code === 'too_small' || issue.code === 'too_big'
       ? 'OUT_OF_RANGE'
@@ -116,6 +170,23 @@ function toValidationProblems(issue: ZodIssue): ValidationProblem[] {
         : 'INVALID_VALUE';
   return [{ path, code, message: 'Invalid value.' }];
 }
+
+const IMMUTABLE_FIELDS = new Set([
+  'tenantId',
+  'origin',
+  'currencyCode',
+  'externalProvider',
+  'externalAccountId',
+  'id',
+  'createdAt',
+  'updatedAt',
+  'archivedAt',
+]);
+
+const SAFE_VALIDATION_CODES = new Set([
+  'EMPTY_PATCH',
+  'BALANCE_REFERENCE_PAIR_REQUIRED',
+]);
 
 function sanitizeError(exception: unknown): string {
   if (!(exception instanceof Error)) {

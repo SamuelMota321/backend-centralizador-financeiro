@@ -33,6 +33,9 @@ function repositoryWith(total: number, items: AccountView[]) {
     createManual: vi.fn(() => Promise.resolve(item)),
     countActive: vi.fn(() => Promise.resolve(total)),
     findActive,
+    findByIdForUpdate: vi.fn(() => Promise.resolve(null)),
+    update: vi.fn(() => Promise.resolve(item)),
+    deactivate: vi.fn(() => Promise.resolve(item)),
   };
   const repository: AccountsRepository = {
     withTenant: async (_context, operation) => operation(tenantRepository),

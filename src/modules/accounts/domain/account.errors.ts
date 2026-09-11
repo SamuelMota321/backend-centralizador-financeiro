@@ -29,3 +29,23 @@ export class OwnerNotFound extends Error {
 export class TenantMismatch extends Error {
   override readonly name = 'TenantMismatch';
 }
+
+export class AccountArchived extends Error {
+  override readonly name = 'AccountArchived';
+}
+
+export class ConnectedAccountReadOnly extends Error {
+  override readonly name = 'ConnectedAccountReadOnly';
+}
+
+export class BalanceReferencePairRequired extends Error {
+  override readonly name = 'BalanceReferencePairRequired';
+}
+
+export class InvalidAccountState extends Error {
+  override readonly name = 'InvalidAccountState';
+}
+
+export class AccountNotFound extends Error {
+  override readonly name = 'AccountNotFound';
+}

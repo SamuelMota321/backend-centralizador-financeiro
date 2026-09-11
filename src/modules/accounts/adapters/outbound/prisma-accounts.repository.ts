@@ -14,11 +14,13 @@ import type {
   AccountsRepository,
   TenantAccountsRepository,
 } from '../../application/ports/accounts.repository.port.js';
-import type { Account } from '../../domain/account.js';
+import type { Account, AccountSnapshot } from '../../domain/account.js';
 import type { AccountType } from '../../domain/account-type.js';
+import { AccountNotFound } from '../../domain/account.errors.js';
 
 const accountSelect = {
   id: true,
+  tenantId: true,
   name: true,
   type: true,
   origin: true,
@@ -26,6 +28,8 @@ const accountSelect = {
   initialBalance: true,
   initialBalanceAsOf: true,
   currencyCode: true,
+  externalProvider: true,
+  externalAccountId: true,
   archivedAt: true,
   createdAt: true,
   updatedAt: true,
@@ -53,7 +57,7 @@ const FROM_PRISMA_TYPE: Record<PrismaAccountType, AccountType> = {
   OTHER: 'other',
 };
 
-class PrismaTenantAccountsRepository implements TenantAccountsRepository {
+export class PrismaTenantAccountsRepository implements TenantAccountsRepository {
   constructor(
     private readonly transaction: Prisma.TransactionClient,
     private readonly context: TenantContext,
@@ -61,10 +65,12 @@ class PrismaTenantAccountsRepository implements TenantAccountsRepository {
 
   async findPossibleConnectedDuplicates(
     account: Account,
+    excludedAccountId?: string,
   ): Promise<DuplicateCandidate[]> {
     const records = await this.transaction.account.findMany({
       where: {
         tenantId: this.context.tenantId,
+        ...(excludedAccountId ? { id: { not: excludedAccountId } } : {}),
         archivedAt: null,
         origin: PrismaAccountOrigin.CONNECTED,
         name: account.props.name,
@@ -75,6 +81,64 @@ class PrismaTenantAccountsRepository implements TenantAccountsRepository {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
     return records.map(toDuplicateCandidate);
+  }
+
+  async findByIdForUpdate(accountId: string): Promise<AccountSnapshot | null> {
+    const locked = await this.transaction.$queryRaw<{ id: string }[]>`
+      SELECT id
+      FROM public.accounts
+      WHERE id = ${accountId}::uuid
+        AND tenant_id = ${this.context.tenantId}::uuid
+      FOR UPDATE
+    `;
+    if (!locked[0]) return null;
+
+    const record = await this.transaction.account.findFirst({
+      where: { id: accountId, tenantId: this.context.tenantId },
+      select: accountSelect,
+    });
+    return record ? toAccountSnapshot(record) : null;
+  }
+
+  async update(accountId: string, account: Account): Promise<AccountView> {
+    const result = await this.transaction.account.updateMany({
+      where: { id: accountId, tenantId: this.context.tenantId },
+      data: {
+        name: account.props.name,
+        type: TO_PRISMA_TYPE[account.props.type],
+        institutionName: account.props.institutionName,
+        initialBalance: account.props.initialBalance.toDecimal(),
+        initialBalanceAsOf: new Date(
+          `${account.props.initialBalanceAsOf.value}T00:00:00.000Z`,
+        ),
+      },
+    });
+    if (result.count !== 1) {
+      throw new AccountNotFound('Account was not found.');
+    }
+    return this.findView(accountId);
+  }
+
+  async deactivate(accountId: string): Promise<AccountView> {
+    await this.transaction.$executeRaw`
+      UPDATE public.accounts
+      SET archived_at = CURRENT_TIMESTAMP
+      WHERE id = ${accountId}::uuid
+        AND tenant_id = ${this.context.tenantId}::uuid
+        AND archived_at IS NULL
+    `;
+    return this.findView(accountId);
+  }
+
+  private async findView(accountId: string): Promise<AccountView> {
+    const record = await this.transaction.account.findFirst({
+      where: { id: accountId, tenantId: this.context.tenantId },
+      select: accountSelect,
+    });
+    if (!record) {
+      throw new AccountNotFound('Account was not found.');
+    }
+    return toAccountView(record);
   }
 
   async createManual(account: Account): Promise<AccountView> {
@@ -144,6 +208,32 @@ function toAccountView(record: AccountRecord): AccountView {
     initialBalance: record.initialBalance.toFixed(2),
     initialBalanceAsOf: record.initialBalanceAsOf.toISOString().slice(0, 10),
     currencyCode: record.currencyCode,
+    archivedAt: record.archivedAt?.toISOString() ?? null,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+  };
+}
+
+function toAccountSnapshot(record: AccountRecord): AccountSnapshot {
+  if (record.currencyCode !== 'BRL') {
+    throw new Error('Unsupported account currency.');
+  }
+  return {
+    id: record.id,
+    tenantId: record.tenantId,
+    name: record.name,
+    type: FROM_PRISMA_TYPE[record.type],
+    origin:
+      record.origin === PrismaAccountOrigin.MANUAL ? 'manual' : 'connected',
+    institutionName: record.institutionName,
+    initialBalance: record.initialBalance.toFixed(2),
+    initialBalanceAsOf: record.initialBalanceAsOf.toISOString().slice(0, 10),
+    currencyCode: record.currencyCode,
+    externalProvider:
+      record.externalProvider === null
+        ? null
+        : (record.externalProvider.toLowerCase() as 'pluggy'),
+    externalAccountId: record.externalAccountId,
     archivedAt: record.archivedAt?.toISOString() ?? null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

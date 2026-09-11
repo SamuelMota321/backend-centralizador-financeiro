@@ -38,12 +38,32 @@ enum AccountType {
   @@map("account_type")
 }
 
+enum AuditAction {
+  ACCOUNT_UPDATED     @map("account_updated")
+  ACCOUNT_DEACTIVATED @map("account_deactivated")
+
+  @@map("audit_action")
+}
+
+enum AuditResourceType {
+  ACCOUNT @map("account")
+
+  @@map("audit_resource_type")
+}
+
+enum AuditOutcome {
+  SUCCESS @map("success")
+
+  @@map("audit_outcome")
+}
+
 model Tenant {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user      User?
-  accounts  Account[]
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user         User?
+  accounts     Account[]
+  auditRecords AuditRecord[]
 
   @@map("tenants")
 }
@@ -55,6 +75,7 @@ model User {
   updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "users_tenant_id_fkey")
   identityLinks IdentityLink[]
+  auditRecords  AuditRecord[]  @relation("AuditActor")
 
   @@map("users")
 }
@@ -75,24 +96,46 @@ model IdentityLink {
 }
 
 model Account {
-  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId             String                   @map("tenant_id") @db.Uuid
-  name                 String                   @db.VarChar(100)
-  type                 AccountType
-  origin               AccountOrigin            @default(MANUAL)
-  institutionName      String?                  @map("institution_name") @db.VarChar(120)
-  initialBalance       Decimal                  @map("initial_balance") @db.Decimal(19, 2)
-  initialBalanceAsOf   DateTime                 @map("initial_balance_as_of") @db.Date
-  currencyCode         String                   @default("BRL") @map("currency_code") @db.VarChar(3)
-  externalProvider     AccountExternalProvider? @map("external_provider")
-  externalAccountId    String?                  @map("external_account_id") @db.VarChar(255)
-  archivedAt           DateTime?                @map("archived_at") @db.Timestamptz(3)
-  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "accounts_tenant_id_fkey")
+  id                 String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                   @map("tenant_id") @db.Uuid
+  name               String                   @db.VarChar(100)
+  type               AccountType
+  origin             AccountOrigin            @default(MANUAL)
+  institutionName    String?                  @map("institution_name") @db.VarChar(120)
+  initialBalance     Decimal                  @map("initial_balance") @db.Decimal(19, 2)
+  initialBalanceAsOf DateTime                 @map("initial_balance_as_of") @db.Date
+  currencyCode       String                   @default("BRL") @map("currency_code") @db.VarChar(3)
+  externalProvider   AccountExternalProvider? @map("external_provider")
+  externalAccountId  String?                  @map("external_account_id") @db.VarChar(255)
+  archivedAt         DateTime?                @map("archived_at") @db.Timestamptz(3)
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "accounts_tenant_id_fkey")
+  auditRecords       AuditRecord[]
 
   @@unique([tenantId, externalProvider, externalAccountId], map: "accounts_external_identity_key")
   @@index([tenantId, archivedAt], map: "accounts_tenant_id_archived_at_idx")
   @@index([tenantId, type], map: "accounts_tenant_id_type_idx")
   @@map("accounts")
+}
+
+model AuditRecord {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String            @map("tenant_id") @db.Uuid
+  actorUserId  String            @map("actor_user_id") @db.Uuid
+  action       AuditAction
+  resourceType AuditResourceType @map("resource_type")
+  resourceId   String            @map("resource_id") @db.Uuid
+  outcome      AuditOutcome
+  requestId    String            @map("request_id") @db.Uuid
+  metadata     Json              @default("{}")
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "audit_records_tenant_id_fkey")
+  actorUser    User              @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "audit_records_actor_user_id_fkey")
+  resource     Account           @relation(fields: [resourceId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "audit_records_resource_id_fkey")
+
+  @@index([tenantId, createdAt, id], map: "audit_records_tenant_created_at_id_idx")
+  @@index([tenantId, resourceId, createdAt], map: "audit_records_tenant_resource_created_at_idx")
+  @@index([requestId], map: "audit_records_request_id_idx")
+  @@map("audit_records")
 }

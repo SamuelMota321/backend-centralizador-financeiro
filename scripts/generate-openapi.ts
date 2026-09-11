@@ -9,6 +9,8 @@ import { DatabaseSecurityCheckService } from '../src/infrastructure/database/dat
 import { AccountsController } from '../src/modules/accounts/adapters/inbound/accounts.controller.js';
 import { CreateManualAccount } from '../src/modules/accounts/application/use-cases/create-manual-account.js';
 import { ListAccounts } from '../src/modules/accounts/application/use-cases/list-accounts.js';
+import { DeactivateAccount } from '../src/modules/accounts/application/use-cases/deactivate-account.js';
+import { UpdateAccount } from '../src/modules/accounts/application/use-cases/update-account.js';
 import {
   ACCESS_TOKEN_VERIFIER,
   type AccessTokenVerifier,
@@ -32,6 +34,16 @@ const listAccounts: Pick<ListAccounts, 'execute'> = {
     Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
 };
 
+const updateAccount: Pick<UpdateAccount, 'execute'> = {
+  execute: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+};
+
+const deactivateAccount: Pick<DeactivateAccount, 'execute'> = {
+  execute: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+};
+
 const accessTokenVerifier: AccessTokenVerifier = {
   verify: () =>
     Promise.reject(new Error('OpenAPI generation does not verify tokens.')),
@@ -51,6 +63,8 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     },
     { provide: CreateManualAccount, useValue: createManualAccount },
     { provide: ListAccounts, useValue: listAccounts },
+    { provide: UpdateAccount, useValue: updateAccount },
+    { provide: DeactivateAccount, useValue: deactivateAccount },
     { provide: ACCESS_TOKEN_VERIFIER, useValue: accessTokenVerifier },
     { provide: ResolveIdentityContext, useValue: resolveIdentityContext },
   ],

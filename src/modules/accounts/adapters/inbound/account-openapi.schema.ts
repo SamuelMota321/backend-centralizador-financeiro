@@ -54,6 +54,26 @@ export const CREATE_ACCOUNT_SCHEMA: SchemaObject = {
   },
 };
 
+export const UPDATE_ACCOUNT_SCHEMA: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    name: { type: 'string' },
+    type: { type: 'string', enum: ACCOUNT_TYPE_VALUES },
+    institutionName: { type: 'string', nullable: true },
+    initialBalance: { type: 'string', example: '1250.00' },
+    initialBalanceAsOf: { type: 'string', format: 'date' },
+    confirmPossibleDuplicate: { type: 'boolean', default: false },
+  },
+};
+
+export const REQUEST_ID_RESPONSE_HEADERS = {
+  'X-Request-Id': {
+    description: 'Canonical request correlation identifier.',
+    schema: { type: 'string', format: 'uuid' },
+  },
+};
+
 export const ACCOUNT_PAGE_SCHEMA: SchemaObject = {
   type: 'object',
   required: ['items', 'page', 'pageSize', 'total'],

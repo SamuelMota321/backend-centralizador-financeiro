@@ -5,11 +5,13 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 import type { Environment } from './config/environment.schema.js';
+import { RequestIdMiddleware } from './shared/adapters/inbound/request-id.middleware.js';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     logger: new ConsoleLogger({ json: true }),
   });
+  app.use(new RequestIdMiddleware().use);
   const config = app.get(ConfigService<Environment, true>);
 
   app.setGlobalPrefix('api/v1');
