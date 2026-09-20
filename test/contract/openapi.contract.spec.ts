@@ -19,6 +19,9 @@ type OpenApiPath = Record<string, OpenApiOperation>;
 
 type OpenApiDocument = {
   paths?: Record<string, OpenApiPath>;
+  components?: {
+    schemas?: Record<string, OpenApiSchema>;
+  };
 };
 
 const PROBLEM_DETAILS_FIELDS = ['type', 'title', 'status', 'code', 'detail'];
@@ -61,5 +64,22 @@ describe('OpenAPI contract', () => {
     expect(document.paths?.['/api/v1/accounts/{accountId}']).not.toHaveProperty(
       'delete',
     );
+  });
+
+  it('publishes Transactions foundation schemas without exposing routes yet', () => {
+    const schemas = document.components?.schemas;
+    for (const schemaName of [
+      'TransactionView',
+      'CreateTransaction',
+      'CategoryView',
+      'CreateCategory',
+      'CategoryRuleView',
+      'CreateCategoryRule',
+    ]) {
+      expect(schemas, schemaName).toHaveProperty(schemaName);
+    }
+    expect(document.paths).not.toHaveProperty('/api/v1/transactions');
+    expect(document.paths).not.toHaveProperty('/api/v1/categories');
+    expect(document.paths).not.toHaveProperty('/api/v1/category-rules');
   });
 });

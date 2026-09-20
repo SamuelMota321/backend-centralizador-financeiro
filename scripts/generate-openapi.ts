@@ -11,6 +11,7 @@ import { CreateManualAccount } from '../src/modules/accounts/application/use-cas
 import { ListAccounts } from '../src/modules/accounts/application/use-cases/list-accounts.js';
 import { DeactivateAccount } from '../src/modules/accounts/application/use-cases/deactivate-account.js';
 import { UpdateAccount } from '../src/modules/accounts/application/use-cases/update-account.js';
+import { TRANSACTIONS_OPENAPI_SCHEMAS } from '../src/modules/transactions/adapters/inbound/transactions-openapi.schema.js';
 import {
   ACCESS_TOKEN_VERIFIER,
   type AccessTokenVerifier,
@@ -89,6 +90,13 @@ const config = new DocumentBuilder()
   )
   .build();
 const document = SwaggerModule.createDocument(app, config);
+document.components = {
+  ...(document.components ?? {}),
+  schemas: {
+    ...(document.components?.schemas ?? {}),
+    ...TRANSACTIONS_OPENAPI_SCHEMAS,
+  },
+};
 const serializedDocument = await format(JSON.stringify(document), {
   parser: 'json',
 });

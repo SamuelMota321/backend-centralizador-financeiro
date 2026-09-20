@@ -1906,6 +1906,352 @@
     "securitySchemes": {
       "auth0": { "scheme": "bearer", "bearerFormat": "JWT", "type": "http" }
     },
-    "schemas": {}
+    "schemas": {
+      "TransactionView": {
+        "type": "object",
+        "required": [
+          "id",
+          "accountId",
+          "type",
+          "amount",
+          "occurredOn",
+          "description",
+          "status",
+          "transferId",
+          "transferSide",
+          "categoryId",
+          "categorizationStatus",
+          "categorizationSource",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "accountId": { "type": "string", "format": "uuid" },
+          "type": {
+            "type": "string",
+            "enum": ["income", "expense", "transfer"]
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+          },
+          "occurredOn": { "type": "string", "format": "date" },
+          "description": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["posted", "voided"] },
+          "transferId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "transferSide": {
+            "type": "string",
+            "enum": ["outgoing", "incoming"],
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "categorizationStatus": {
+            "type": "string",
+            "enum": [
+              "unclassified",
+              "categorized",
+              "uncertain",
+              "unrecognized",
+              "not_applicable"
+            ]
+          },
+          "categorizationSource": {
+            "type": "string",
+            "enum": ["manual", "rule"],
+            "nullable": true
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateTransaction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["accountId", "type", "amount", "occurredOn"],
+        "properties": {
+          "accountId": { "type": "string", "format": "uuid" },
+          "type": { "type": "string", "enum": ["income", "expense"] },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+          },
+          "occurredOn": { "type": "string", "format": "date" },
+          "description": { "type": "string", "nullable": true }
+        }
+      },
+      "TransactionPage": {
+        "type": "object",
+        "required": ["items", "page", "pageSize", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "accountId",
+                "type",
+                "amount",
+                "occurredOn",
+                "description",
+                "status",
+                "transferId",
+                "transferSide",
+                "categoryId",
+                "categorizationStatus",
+                "categorizationSource",
+                "createdAt",
+                "updatedAt"
+              ],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "accountId": { "type": "string", "format": "uuid" },
+                "type": {
+                  "type": "string",
+                  "enum": ["income", "expense", "transfer"]
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+                },
+                "occurredOn": { "type": "string", "format": "date" },
+                "description": { "type": "string", "nullable": true },
+                "status": { "type": "string", "enum": ["posted", "voided"] },
+                "transferId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
+                "transferSide": {
+                  "type": "string",
+                  "enum": ["outgoing", "incoming"],
+                  "nullable": true
+                },
+                "categoryId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
+                "categorizationStatus": {
+                  "type": "string",
+                  "enum": [
+                    "unclassified",
+                    "categorized",
+                    "uncertain",
+                    "unrecognized",
+                    "not_applicable"
+                  ]
+                },
+                "categorizationSource": {
+                  "type": "string",
+                  "enum": ["manual", "rule"],
+                  "nullable": true
+                },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "updatedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "page": { "type": "integer", "minimum": 1 },
+          "pageSize": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "total": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "CategoryView": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "source",
+          "status",
+          "archivedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "source": { "type": "string", "enum": ["user"] },
+          "status": { "type": "string", "enum": ["active", "archived"] },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+        }
+      },
+      "CategoryPage": {
+        "type": "object",
+        "required": ["items", "page", "pageSize", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "source",
+                "status",
+                "archivedAt",
+                "createdAt",
+                "updatedAt"
+              ],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "name": { "type": "string" },
+                "source": { "type": "string", "enum": ["user"] },
+                "status": { "type": "string", "enum": ["active", "archived"] },
+                "archivedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "updatedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "page": { "type": "integer", "minimum": 1 },
+          "pageSize": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "total": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "CategoryRuleView": {
+        "type": "object",
+        "required": [
+          "id",
+          "categoryId",
+          "conditionField",
+          "conditionOperator",
+          "conditionValue",
+          "priority",
+          "status",
+          "removedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "categoryId": { "type": "string", "format": "uuid" },
+          "conditionField": {
+            "type": "string",
+            "enum": ["description", "type", "accountId"]
+          },
+          "conditionOperator": {
+            "type": "string",
+            "enum": ["equals", "contains", "starts_with", "ends_with"]
+          },
+          "conditionValue": { "type": "string", "minLength": 1 },
+          "priority": { "type": "integer", "minimum": 0 },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive", "removed"]
+          },
+          "removedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateCategoryRule": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "categoryId",
+          "conditionField",
+          "conditionOperator",
+          "conditionValue",
+          "priority"
+        ],
+        "properties": {
+          "categoryId": { "type": "string", "format": "uuid" },
+          "conditionField": {
+            "type": "string",
+            "enum": ["description", "type", "accountId"]
+          },
+          "conditionOperator": {
+            "type": "string",
+            "enum": ["equals", "contains", "starts_with", "ends_with"]
+          },
+          "conditionValue": { "type": "string", "minLength": 1 },
+          "priority": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "CategoryRulePage": {
+        "type": "object",
+        "required": ["items", "page", "pageSize", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "categoryId",
+                "conditionField",
+                "conditionOperator",
+                "conditionValue",
+                "priority",
+                "status",
+                "removedAt",
+                "createdAt",
+                "updatedAt"
+              ],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "categoryId": { "type": "string", "format": "uuid" },
+                "conditionField": {
+                  "type": "string",
+                  "enum": ["description", "type", "accountId"]
+                },
+                "conditionOperator": {
+                  "type": "string",
+                  "enum": ["equals", "contains", "starts_with", "ends_with"]
+                },
+                "conditionValue": { "type": "string", "minLength": 1 },
+                "priority": { "type": "integer", "minimum": 0 },
+                "status": {
+                  "type": "string",
+                  "enum": ["active", "inactive", "removed"]
+                },
+                "removedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "updatedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "page": { "type": "integer", "minimum": 1 },
+          "pageSize": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "total": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
   }
 }

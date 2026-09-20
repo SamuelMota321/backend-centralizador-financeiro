@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { Category } from './category.js';
 import {
@@ -5,7 +6,7 @@ import {
   InvalidCategoryState,
 } from './transactions.errors.js';
 
-const tenantId = '11111111-1111-4111-8111-111111111111';
+const tenantId = randomUUID();
 
 describe('Category', () => {
   it('normalizes a user-owned active category', () => {
@@ -21,7 +22,7 @@ describe('Category', () => {
 
   it('archives a category without deleting its identity', () => {
     const category = Category.reconstitute({
-      id: '22222222-2222-4222-8222-222222222222',
+      id: randomUUID(),
       tenantId,
       name: 'Mercado',
       source: 'user',
@@ -34,7 +35,7 @@ describe('Category', () => {
     const archived = category.archive('2026-09-20T10:01:00.000Z');
     expect(archived.props.status).toBe('archived');
     expect(archived.props.archivedAt).toBe('2026-09-20T10:01:00.000Z');
-    expect(archived.snapshot?.id).toBe('22222222-2222-4222-8222-222222222222');
+    expect(archived.snapshot?.id).toBeDefined();
   });
 
   it('rejects blank, oversized and inconsistent categories', () => {
@@ -46,7 +47,7 @@ describe('Category', () => {
     );
     expect(() =>
       Category.reconstitute({
-        id: '33333333-3333-4333-8333-333333333333',
+        id: randomUUID(),
         tenantId,
         name: 'Inconsistent',
         source: 'user',

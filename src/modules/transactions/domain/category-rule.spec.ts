@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { CategoryRule } from './category-rule.js';
 import {
@@ -6,8 +7,8 @@ import {
 } from './transactions.errors.js';
 
 const base = {
-  tenantId: '11111111-1111-4111-8111-111111111111',
-  categoryId: '22222222-2222-4222-8222-222222222222',
+  tenantId: randomUUID(),
+  categoryId: randomUUID(),
 };
 
 describe('CategoryRule', () => {
@@ -45,7 +46,7 @@ describe('CategoryRule', () => {
       ...base,
       conditionField: 'accountId',
       conditionOperator: 'equals',
-      conditionValue: '33333333-3333-4333-8333-333333333333',
+      conditionValue: randomUUID(),
       priority: 0,
     });
     const inactive = rule.deactivate('2026-09-20T10:00:00.000Z');

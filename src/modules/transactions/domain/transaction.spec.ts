@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { Transaction } from './transaction.js';
 import {
@@ -6,9 +7,9 @@ import {
   TransactionCategorizationNotAllowed,
 } from './transactions.errors.js';
 
-const tenantId = '11111111-1111-4111-8111-111111111111';
-const accountId = '22222222-2222-4222-8222-222222222222';
-const categoryId = '33333333-3333-4333-8333-333333333333';
+const tenantId = randomUUID();
+const accountId = randomUUID();
+const categoryId = randomUUID();
 
 describe('Transaction', () => {
   it('creates a positive manual income without binary money', () => {
@@ -55,7 +56,7 @@ describe('Transaction', () => {
       accountId,
       amount: '100.00',
       occurredOn: '2026-09-20',
-      transferId: '44444444-4444-4444-8444-444444444444',
+      transferId: randomUUID(),
       transferSide: 'outgoing',
     });
 
@@ -69,7 +70,7 @@ describe('Transaction', () => {
 
   it('categorizes a posted manual transaction and voids it', () => {
     const transaction = Transaction.reconstitute({
-      id: '55555555-5555-4555-8555-555555555555',
+      id: randomUUID(),
       tenantId,
       accountId,
       type: 'expense',
@@ -117,7 +118,7 @@ describe('Transaction', () => {
       accountId,
       amount: '1.00',
       occurredOn: '2026-09-20',
-      transferId: '66666666-6666-4666-8666-666666666666',
+      transferId: randomUUID(),
       transferSide: 'incoming',
     });
     expect(() =>
