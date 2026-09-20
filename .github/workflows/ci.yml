@@ -31,8 +31,12 @@ jobs:
       - run: npm run typecheck
       - run: npm run prisma:validate
       - run: npm run build
+      - run: docker compose down --volumes --remove-orphans
       - run: docker compose up -d --wait postgres
       - run: npm run db:migrate:deploy
+      - run: npm run db:verify-migrations
+      - run: npm run db:verify-rls
       - run: npm test
       - run: npm run openapi:generate
       - run: git diff --exit-code -- openapi/openapi.json
+      - run: git diff --check

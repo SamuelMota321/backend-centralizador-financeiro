@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
@@ -13,6 +13,7 @@ import {
 } from '../../src/modules/identity/adapters/inbound/auth0-access-token-verifier.js';
 import { ExternalIdentity } from '../../src/modules/identity/domain/external-identity.js';
 import { IdentityContextUnavailable } from '../../src/modules/identity/domain/identity.errors.js';
+import { jsonParserProblemDetailsMiddleware } from '../../src/shared/adapters/inbound/json-parser-problem-details.middleware.js';
 import { RequestIdMiddleware } from '../../src/shared/adapters/inbound/request-id.middleware.js';
 import { createTestPool, withTenant } from '../helpers/database.js';
 
@@ -31,7 +32,7 @@ type AuditUpdateRow = {
 type AuditTransitionRow = { metadata: { stateTransition: string } };
 
 describe('account maintenance API', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let server: Server;
   let pool: Pool;
   let first: IdentityContextRow;
@@ -63,11 +64,15 @@ describe('account maintenance API', () => {
       .overrideProvider(ACCESS_TOKEN_VERIFIER)
       .useValue(verifier)
       .compile();
-    app = module.createNestApplication();
+    app = module.createNestApplication<NestExpressApplication>({
+      bodyParser: false,
+    });
+    app.useBodyParser('json');
     app.use(new RequestIdMiddleware().use);
+    app.use(jsonParserProblemDetailsMiddleware);
     app.setGlobalPrefix('api/v1');
     await app.init();
-    server = app.getHttpServer() as Server;
+    server = app.getHttpServer();
     pool = createTestPool();
     first = await resolveContext(subjects.first);
     second = await resolveContext(subjects.second);
@@ -76,6 +81,48 @@ describe('account maintenance API', () => {
   afterAll(async () => {
     if (pool) await pool.end();
     if (app) await app.close();
+  });
+
+  it('rejects protected maintenance routes without a bearer token', async () => {
+    await request(server)
+      .patch(`/api/v1/accounts/${randomUUID()}`)
+      .send({ name: 'Sem autenticação' })
+      .expect(401)
+      .expect('Content-Type', /application\/problem\+json/);
+
+    await request(server)
+      .post(`/api/v1/accounts/${randomUUID()}/deactivate`)
+      .expect(401)
+      .expect('Content-Type', /application\/problem\+json/);
+  });
+
+  it('returns Problem Details for malformed JSON before controller filters', async () => {
+    const response = await request(server)
+      .post('/api/v1/accounts')
+      .set('Content-Type', 'application/json')
+      .send('{"name":')
+      .expect(400);
+
+    expect(response.headers['content-type']).toContain(
+      'application/problem+json',
+    );
+    expect(response.headers['x-request-id']).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(response.body).toEqual({
+      type: 'about:blank',
+      title: 'Invalid request',
+      status: 400,
+      code: 'INVALID_REQUEST',
+      detail: 'The request body contains invalid JSON.',
+      errors: [
+        {
+          path: '$',
+          code: 'INVALID_JSON',
+          message: 'Invalid JSON body.',
+        },
+      ],
+    });
   });
 
   it('updates a manual account and records only the changed fields', async () => {
@@ -224,6 +271,14 @@ describe('account maintenance API', () => {
       code: 'ACCOUNT_NOT_FOUND',
       detail: 'The requested account was not found.',
     });
+
+    const deactivation = await request(server)
+      .post(
+        `/api/v1/accounts/${(created.body as AccountBody).id}/deactivate`,
+      )
+      .set('Authorization', 'Bearer valid-second')
+      .expect(404);
+    expect(deactivation.body).toEqual(response.body);
     expect(first.tenant_id).not.toBe(second.tenant_id);
   });
 

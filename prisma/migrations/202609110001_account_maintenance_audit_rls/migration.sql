@@ -74,3 +74,5 @@ CREATE POLICY audit_records_select_test ON public.audit_records
 CREATE POLICY audit_records_insert_own ON public.audit_records
   FOR INSERT TO cfi_runtime, cfi_test
   WITH CHECK (tenant_id = app_private.current_tenant_id());
+
+RESET ROLE;

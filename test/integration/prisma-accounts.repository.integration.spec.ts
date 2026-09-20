@@ -82,6 +82,52 @@ describe('PrismaAccountsRepository', () => {
     expect(other).toEqual([]);
   });
 
+  it('updates and deactivates an account through the repository contract', async () => {
+    const account = Account.createManual({
+      tenantId: first.tenantId,
+      name: `Conta de Manutenção ${randomUUID()}`,
+      type: 'cash',
+      initialBalance: '10.00',
+      initialBalanceAsOf: '2026-09-01',
+    });
+
+    const created = await repository.withTenant(first, (accounts) =>
+      accounts.createManual(account),
+    );
+    const snapshot = await repository.withTenant(first, (accounts) =>
+      accounts.findByIdForUpdate(created.id),
+    );
+    if (!snapshot) throw new Error('Expected the created account snapshot.');
+
+    const updated = await repository.withTenant(first, (accounts) =>
+      accounts.update(
+        created.id,
+        Account.reconstitute(snapshot).update({
+          name: 'Conta de Manutenção Atualizada',
+          initialBalance: '12.00',
+          initialBalanceAsOf: '2026-09-02',
+        }),
+      ),
+    );
+    expect(updated).toMatchObject({
+      id: created.id,
+      name: 'Conta de Manutenção Atualizada',
+      initialBalance: '12.00',
+      initialBalanceAsOf: '2026-09-02',
+      archivedAt: null,
+    });
+
+    const deactivated = await repository.withTenant(first, (accounts) =>
+      accounts.deactivate(created.id),
+    );
+    expect(deactivated.archivedAt).toEqual(expect.any(String));
+
+    const active = await repository.withTenant(first, (accounts) =>
+      accounts.findActive(0, 100),
+    );
+    expect(active.map(({ id }) => id)).not.toContain(created.id);
+  });
+
   it('finds only an active connected account with the exact normalized key', async () => {
     await withTenant(pool, first.tenantId, (client) =>
       client.query(

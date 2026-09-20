@@ -50,7 +50,7 @@ import {
   ACCOUNT_PAGE_SCHEMA,
   ACCOUNT_SCHEMA,
   CREATE_ACCOUNT_SCHEMA,
-  PROBLEM_DETAILS_SCHEMA,
+  PROBLEM_DETAILS_RESPONSE,
   REQUEST_ID_RESPONSE_HEADERS,
   UPDATE_ACCOUNT_SCHEMA,
 } from './account-openapi.schema.js';
@@ -83,26 +83,11 @@ export class AccountsController {
     schema: ACCOUNT_SCHEMA,
     headers: REQUEST_ID_RESPONSE_HEADERS,
   })
-  @ApiBadRequestResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiUnauthorizedResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiForbiddenResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiConflictResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiInternalServerErrorResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
+  @ApiBadRequestResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiUnauthorizedResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiForbiddenResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiConflictResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiInternalServerErrorResponse(PROBLEM_DETAILS_RESPONSE)
   create(
     @CurrentTenantContext() context: TenantContext,
     @Body() body: unknown,
@@ -128,22 +113,10 @@ export class AccountsController {
     schema: ACCOUNT_PAGE_SCHEMA,
     headers: REQUEST_ID_RESPONSE_HEADERS,
   })
-  @ApiBadRequestResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiUnauthorizedResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiForbiddenResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiInternalServerErrorResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
+  @ApiBadRequestResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiUnauthorizedResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiForbiddenResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiInternalServerErrorResponse(PROBLEM_DETAILS_RESPONSE)
   list(
     @CurrentTenantContext() context: TenantContext,
     @Query() query: unknown,
@@ -165,30 +138,12 @@ export class AccountsController {
     schema: ACCOUNT_SCHEMA,
     headers: REQUEST_ID_RESPONSE_HEADERS,
   })
-  @ApiBadRequestResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiUnauthorizedResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiForbiddenResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiNotFoundResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiConflictResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiInternalServerErrorResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
+  @ApiBadRequestResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiUnauthorizedResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiForbiddenResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiNotFoundResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiConflictResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiInternalServerErrorResponse(PROBLEM_DETAILS_RESPONSE)
   update(
     @CurrentTenantContext() context: TenantContext,
     @Req() request: RequestWithId,
@@ -216,26 +171,11 @@ export class AccountsController {
     schema: ACCOUNT_SCHEMA,
     headers: REQUEST_ID_RESPONSE_HEADERS,
   })
-  @ApiBadRequestResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiUnauthorizedResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiForbiddenResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiNotFoundResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiInternalServerErrorResponse({
-    schema: PROBLEM_DETAILS_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
+  @ApiBadRequestResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiUnauthorizedResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiForbiddenResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiNotFoundResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiInternalServerErrorResponse(PROBLEM_DETAILS_RESPONSE)
   deactivate(
     @CurrentTenantContext() context: TenantContext,
     @Req() request: RequestWithId,

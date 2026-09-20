@@ -22,7 +22,8 @@
     "prisma:generate": "prisma generate",
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:verify-rls": "psql \"$TEST_DATABASE_URL\" -v ON_ERROR_STOP=1 -f scripts/database/verify-rls.sql",
+    "db:verify-migrations": "tsx scripts/database/verify-migrations.ts",
+    "db:verify-rls": "tsx scripts/database/verify-rls.ts",
     "openapi:generate": "tsx scripts/generate-openapi.ts"
   },
   "dependencies": {

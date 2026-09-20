@@ -32,8 +32,13 @@ npm run prisma:validate
 npm run prisma:generate
 npm run db:migrate:dev
 npm run db:migrate:deploy
+npm run db:verify-migrations
 npm run db:verify-rls
 ```
+
+`db:verify-migrations` exige conexão direta como `cfi_migrator` e confirma que o histórico `_prisma_migrations` corresponde exatamente aos diretórios versionados, sem duplicatas, rollback ou migration incompleta. Ele também verifica ownership/RLS das tabelas protegidas e que `cfi_runtime`/`cfi_test` não possuem `SUPERUSER` nem `BYPASSRLS`.
+
+Para evidência reproduzível, execute `db:migrate:deploy`, `db:verify-migrations` e `db:verify-rls` em um banco novo e isolado. O workflow não usa `prisma migrate resolve` para mascarar divergências de histórico.
 
 Não execute migrations contra Neon, banco compartilhado ou ambiente remoto sem autorização específica. `prisma db push` não faz parte do workflow.
 
@@ -53,6 +58,10 @@ npm test
 ```
 
 Testes de integração exigem o PostgreSQL local já inicializado e migrado.
+
+## Erros HTTP
+
+Erros de validação, autenticação, autorização, conflito e recurso inexistente usam `application/problem+json` com o contrato Problem Details da API. JSON malformado é interceptado antes dos controllers e retorna `400 INVALID_REQUEST` com o detalhe `The request body contains invalid JSON.`; o corpo bruto nunca é registrado.
 
 ## Segurança
 

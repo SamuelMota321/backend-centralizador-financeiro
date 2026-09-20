@@ -9,6 +9,7 @@ describe('PostgreSQL RLS', () => {
   let pool: Pool;
   let first: IdentityContextRow;
   let second: IdentityContextRow;
+  let accountId: string;
 
   beforeAll(async () => {
     pool = createTestPool();
@@ -25,13 +26,17 @@ describe('PostgreSQL RLS', () => {
       }),
     );
     [first, second] = contexts as [IdentityContextRow, IdentityContextRow];
-    await withTenant(pool, first.tenant_id, (client) =>
-      client.query(
+    const account = await withTenant(pool, first.tenant_id, (client) =>
+      client.query<{ id: string }>(
         `INSERT INTO accounts (tenant_id, name, type, initial_balance, initial_balance_as_of)
-         VALUES ($1, 'Tenant one', 'cash', '0', DATE '2026-09-08')`,
+         VALUES ($1, 'Tenant one', 'cash', '0', DATE '2026-09-08')
+         RETURNING id`,
         [first.tenant_id],
       ),
     );
+    const insertedAccount = account.rows[0];
+    if (!insertedAccount) throw new Error('Expected the RLS test account.');
+    accountId = insertedAccount.id;
   });
 
   afterAll(async () => {
@@ -57,12 +62,13 @@ describe('PostgreSQL RLS', () => {
 
   it('shows owned rows and hides another tenant rows', async () => {
     const own = await withTenant(pool, first.tenant_id, (client) =>
-      client.query('SELECT id FROM accounts'),
+      client.query<{ id: string }>('SELECT id FROM accounts'),
     );
     const other = await withTenant(pool, second.tenant_id, (client) =>
-      client.query('SELECT id FROM accounts'),
+      client.query<{ id: string }>('SELECT id FROM accounts'),
     );
     expect(own.rowCount).toBe(1);
+    expect(own.rows[0]?.id).toBe(accountId);
     expect(other.rowCount).toBe(0);
   });
 
@@ -81,5 +87,95 @@ describe('PostgreSQL RLS', () => {
         ),
       ),
     ).rejects.toMatchObject({ code: '42501' });
+  });
+
+  it('denies cross-tenant update and delete', async () => {
+    await expect(
+      withTenant(pool, second.tenant_id, (client) =>
+        client.query('UPDATE accounts SET name = $1 WHERE id = $2', [
+          'Foreign update',
+          accountId,
+        ]),
+      ),
+    ).resolves.toMatchObject({ rowCount: 0 });
+
+    await expect(
+      withTenant(pool, second.tenant_id, (client) =>
+        client.query('DELETE FROM accounts WHERE id = $1', [accountId]),
+      ),
+    ).resolves.toMatchObject({ rowCount: 0 });
+  });
+
+  it('fails closed for malformed tenant context', async () => {
+    await expect(
+      withTenant(pool, 'not-a-uuid', (client) =>
+        client.query('SELECT id FROM accounts'),
+      ),
+    ).resolves.toMatchObject({ rowCount: 0 });
+
+    await expect(
+      withTenant(pool, 'not-a-uuid', (client) =>
+        client.query(
+          `INSERT INTO accounts (tenant_id, name, type, initial_balance, initial_balance_as_of)
+           VALUES ($1, 'Malformed context', 'cash', '0', DATE '2026-09-08')`,
+          [first.tenant_id],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: '42501' });
+  });
+
+  it('isolates audit records and rejects cross-tenant audit writes', async () => {
+    const requestId = randomUUID();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        "SELECT set_config('app.current_tenant_id', $1, true)",
+        [first.tenant_id],
+      );
+      await client.query(
+        `INSERT INTO audit_records (
+           tenant_id, actor_user_id, action, resource_type, resource_id, outcome, request_id, metadata
+         ) VALUES ($1, $2, 'account_updated', 'account', $3, 'success', $4, $5::jsonb)`,
+        [
+          first.tenant_id,
+          first.user_id,
+          accountId,
+          requestId,
+          JSON.stringify({ changedFields: ['name'] }),
+        ],
+      );
+
+      const own = await client.query(
+        'SELECT id FROM audit_records WHERE resource_id = $1',
+        [accountId],
+      );
+      expect(own.rowCount).toBe(1);
+
+      await client.query(
+        "SELECT set_config('app.current_tenant_id', $1, true)",
+        [second.tenant_id],
+      );
+      const other = await client.query(
+        'SELECT id FROM audit_records WHERE resource_id = $1',
+        [accountId],
+      );
+      expect(other.rowCount).toBe(0);
+
+      await expect(
+        client.query(
+          `INSERT INTO audit_records (
+             tenant_id, actor_user_id, action, resource_type, resource_id, outcome, request_id, metadata
+           ) VALUES ($1, $2, 'account_updated', 'account', $3, 'success', $4, '{}'::jsonb)`,
+          [first.tenant_id, first.user_id, accountId, randomUUID()],
+        ),
+      ).rejects.toMatchObject({ code: '42501' });
+      await client.query('ROLLBACK');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   });
 });

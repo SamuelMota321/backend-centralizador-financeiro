@@ -122,3 +122,12 @@ export const PROBLEM_DETAILS_SCHEMA: SchemaObject = {
     },
   },
 };
+
+export const PROBLEM_DETAILS_RESPONSE = {
+  content: {
+    'application/problem+json': {
+      schema: PROBLEM_DETAILS_SCHEMA,
+    },
+  },
+  headers: REQUEST_ID_RESPONSE_HEADERS,
+};

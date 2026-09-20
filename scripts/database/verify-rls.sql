@@ -140,6 +140,25 @@ SELECT count(*) AS foreign_audit_count
 FROM public.audit_records
 WHERE resource_id = :'account_id_a'::uuid;
 DO $$
+DECLARE
+  affected_rows integer;
+BEGIN
+  UPDATE public.accounts
+  SET name = 'cross-tenant update'
+  WHERE id = current_setting('verify.account_id_a')::uuid;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant account update unexpectedly affected % rows', affected_rows;
+  END IF;
+
+  DELETE FROM public.accounts
+  WHERE id = current_setting('verify.account_id_a')::uuid;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant account delete unexpectedly affected % rows', affected_rows;
+  END IF;
+END $$;
+DO $$
 BEGIN
   INSERT INTO public.audit_records (
     tenant_id, actor_user_id, action, resource_type, resource_id, outcome,
