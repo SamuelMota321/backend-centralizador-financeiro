@@ -16,7 +16,10 @@ BEGIN
     'public.users'::regclass,
     'public.identity_links'::regclass,
     'public.accounts'::regclass,
-    'public.audit_records'::regclass
+    'public.audit_records'::regclass,
+    'public.categories'::regclass,
+    'public.transactions'::regclass,
+    'public.category_rules'::regclass
   )
   AND relrowsecurity;
 
@@ -27,14 +30,26 @@ BEGIN
     'public.users'::regclass,
     'public.identity_links'::regclass,
     'public.accounts'::regclass,
-    'public.audit_records'::regclass
+    'public.audit_records'::regclass,
+    'public.categories'::regclass,
+    'public.transactions'::regclass,
+    'public.category_rules'::regclass
   )
   AND relforcerowsecurity;
 
   SELECT count(*) INTO policy_count
   FROM pg_policies
   WHERE schemaname = 'public'
-    AND tablename IN ('tenants', 'users', 'identity_links', 'accounts', 'audit_records');
+    AND tablename IN (
+      'tenants',
+      'users',
+      'identity_links',
+      'accounts',
+      'audit_records',
+      'categories',
+      'transactions',
+      'category_rules'
+    );
 
   SELECT relowner::regrole INTO audit_owner
   FROM pg_class
@@ -52,7 +67,7 @@ BEGIN
   FROM pg_roles
   WHERE rolname = 'cfi_test';
 
-  IF enabled_count <> 5 OR forced_count <> 5 OR policy_count <> 18 THEN
+  IF enabled_count <> 8 OR forced_count <> 8 OR policy_count <> 30 THEN
     RAISE EXCEPTION 'RLS verification failed: enabled %, forced %, policies %',
       enabled_count, forced_count, policy_count;
   END IF;
@@ -73,6 +88,34 @@ BEGIN
      OR has_table_privilege('cfi_test', 'public.audit_records', 'UPDATE')
      OR has_table_privilege('cfi_test', 'public.audit_records', 'DELETE') THEN
     RAISE EXCEPTION 'audit_records test grants are unsafe';
+  END IF;
+  IF NOT has_table_privilege('cfi_runtime', 'public.categories', 'SELECT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.categories', 'INSERT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.categories', 'UPDATE')
+     OR has_table_privilege('cfi_runtime', 'public.categories', 'DELETE')
+     OR NOT has_table_privilege('cfi_runtime', 'public.transactions', 'SELECT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.transactions', 'INSERT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.transactions', 'UPDATE')
+     OR has_table_privilege('cfi_runtime', 'public.transactions', 'DELETE')
+     OR NOT has_table_privilege('cfi_runtime', 'public.category_rules', 'SELECT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.category_rules', 'INSERT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.category_rules', 'UPDATE')
+     OR has_table_privilege('cfi_runtime', 'public.category_rules', 'DELETE') THEN
+    RAISE EXCEPTION 'transactions runtime grants are unsafe';
+  END IF;
+  IF NOT has_table_privilege('cfi_test', 'public.categories', 'SELECT')
+     OR NOT has_table_privilege('cfi_test', 'public.categories', 'INSERT')
+     OR NOT has_table_privilege('cfi_test', 'public.categories', 'UPDATE')
+     OR NOT has_table_privilege('cfi_test', 'public.categories', 'DELETE')
+     OR NOT has_table_privilege('cfi_test', 'public.transactions', 'SELECT')
+     OR NOT has_table_privilege('cfi_test', 'public.transactions', 'INSERT')
+     OR NOT has_table_privilege('cfi_test', 'public.transactions', 'UPDATE')
+     OR NOT has_table_privilege('cfi_test', 'public.transactions', 'DELETE')
+     OR NOT has_table_privilege('cfi_test', 'public.category_rules', 'SELECT')
+     OR NOT has_table_privilege('cfi_test', 'public.category_rules', 'INSERT')
+     OR NOT has_table_privilege('cfi_test', 'public.category_rules', 'UPDATE')
+     OR NOT has_table_privilege('cfi_test', 'public.category_rules', 'DELETE') THEN
+    RAISE EXCEPTION 'transactions test grants are unsafe';
   END IF;
 END $$;
 
@@ -110,6 +153,24 @@ INSERT INTO public.audit_records (
   :'account_id_a'::uuid, 'success', gen_random_uuid(),
   '{"changedFields":["name"]}'::jsonb
 );
+INSERT INTO public.categories (tenant_id, name)
+VALUES (:'tenant_id_a'::uuid, 'RLS category')
+RETURNING id AS category_id_a \gset
+SELECT set_config('verify.category_id_a', :'category_id_a', false);
+INSERT INTO public.transactions (
+  tenant_id, account_id, type, amount, occurred_on, category_id,
+  categorization_status, categorization_source
+) VALUES (
+  :'tenant_id_a'::uuid, :'account_id_a'::uuid, 'income', '10.00', DATE '2026-09-20',
+  :'category_id_a'::uuid, 'categorized', 'manual'
+) RETURNING id AS transaction_id_a \gset
+SELECT set_config('verify.transaction_id_a', :'transaction_id_a', false);
+INSERT INTO public.category_rules (
+  tenant_id, category_id, condition_field, condition_operator, condition_value
+) VALUES (
+  :'tenant_id_a'::uuid, :'category_id_a'::uuid, 'description', 'contains', 'RLS'
+) RETURNING id AS category_rule_id_a \gset
+SELECT set_config('verify.category_rule_id_a', :'category_rule_id_a', false);
 COMMIT;
 
 BEGIN;
@@ -120,6 +181,15 @@ WHERE id = :'account_id_a'::uuid;
 SELECT count(*) AS own_audit_count
 FROM public.audit_records
 WHERE resource_id = :'account_id_a'::uuid;
+SELECT count(*) AS own_category_count
+FROM public.categories
+WHERE id = :'category_id_a'::uuid;
+SELECT count(*) AS own_transaction_count
+FROM public.transactions
+WHERE id = :'transaction_id_a'::uuid;
+SELECT count(*) AS own_category_rule_count
+FROM public.category_rules
+WHERE id = :'category_rule_id_a'::uuid;
 DO $$
 BEGIN
   UPDATE public.accounts
@@ -139,6 +209,15 @@ WHERE id = :'account_id_a'::uuid;
 SELECT count(*) AS foreign_audit_count
 FROM public.audit_records
 WHERE resource_id = :'account_id_a'::uuid;
+SELECT count(*) AS foreign_category_count
+FROM public.categories
+WHERE id = :'category_id_a'::uuid;
+SELECT count(*) AS foreign_transaction_count
+FROM public.transactions
+WHERE id = :'transaction_id_a'::uuid;
+SELECT count(*) AS foreign_category_rule_count
+FROM public.category_rules
+WHERE id = :'category_rule_id_a'::uuid;
 DO $$
 DECLARE
   affected_rows integer;
@@ -156,6 +235,27 @@ BEGIN
   GET DIAGNOSTICS affected_rows = ROW_COUNT;
   IF affected_rows <> 0 THEN
     RAISE EXCEPTION 'cross-tenant account delete unexpectedly affected % rows', affected_rows;
+  END IF;
+  UPDATE public.categories
+  SET name = 'cross-tenant category update'
+  WHERE id = current_setting('verify.category_id_a')::uuid;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant category update unexpectedly affected % rows', affected_rows;
+  END IF;
+  UPDATE public.transactions
+  SET description = 'cross-tenant transaction update'
+  WHERE id = current_setting('verify.transaction_id_a')::uuid;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant transaction update unexpectedly affected % rows', affected_rows;
+  END IF;
+  UPDATE public.category_rules
+  SET priority = 1
+  WHERE id = current_setting('verify.category_rule_id_a')::uuid;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant category rule update unexpectedly affected % rows', affected_rows;
   END IF;
 END $$;
 DO $$

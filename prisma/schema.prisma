@@ -38,6 +38,83 @@ enum AccountType {
   @@map("account_type")
 }
 
+enum TransactionType {
+  INCOME   @map("income")
+  EXPENSE  @map("expense")
+  TRANSFER @map("transfer")
+
+  @@map("transaction_type")
+}
+
+enum TransactionStatus {
+  POSTED @map("posted")
+  VOIDED @map("voided")
+
+  @@map("transaction_status")
+}
+
+enum TransferSide {
+  OUTGOING @map("outgoing")
+  INCOMING @map("incoming")
+
+  @@map("transfer_side")
+}
+
+enum CategorizationStatus {
+  UNCLASSIFIED  @map("unclassified")
+  CATEGORIZED   @map("categorized")
+  UNCERTAIN     @map("uncertain")
+  UNRECOGNIZED  @map("unrecognized")
+  NOT_APPLICABLE @map("not_applicable")
+
+  @@map("categorization_status")
+}
+
+enum CategorizationSource {
+  MANUAL @map("manual")
+  RULE   @map("rule")
+
+  @@map("categorization_source")
+}
+
+enum CategorySource {
+  USER @map("user")
+
+  @@map("category_source")
+}
+
+enum CategoryStatus {
+  ACTIVE   @map("active")
+  ARCHIVED @map("archived")
+
+  @@map("category_status")
+}
+
+enum CategoryRuleStatus {
+  ACTIVE   @map("active")
+  INACTIVE @map("inactive")
+  REMOVED  @map("removed")
+
+  @@map("category_rule_status")
+}
+
+enum CategoryRuleConditionField {
+  DESCRIPTION @map("description")
+  TYPE        @map("type")
+  ACCOUNT_ID  @map("account_id")
+
+  @@map("category_rule_condition_field")
+}
+
+enum CategoryRuleOperator {
+  EQUALS      @map("equals")
+  CONTAINS    @map("contains")
+  STARTS_WITH @map("starts_with")
+  ENDS_WITH   @map("ends_with")
+
+  @@map("category_rule_operator")
+}
+
 enum AuditAction {
   ACCOUNT_UPDATED     @map("account_updated")
   ACCOUNT_DEACTIVATED @map("account_deactivated")
@@ -63,6 +140,9 @@ model Tenant {
   updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   user         User?
   accounts     Account[]
+  transactions Transaction[]
+  categories   Category[]
+  categoryRules CategoryRule[]
   auditRecords AuditRecord[]
 
   @@map("tenants")
@@ -111,12 +191,78 @@ model Account {
   createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant             Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "accounts_tenant_id_fkey")
+  transactions       Transaction[]
   auditRecords       AuditRecord[]
 
   @@unique([tenantId, externalProvider, externalAccountId], map: "accounts_external_identity_key")
   @@index([tenantId, archivedAt], map: "accounts_tenant_id_archived_at_idx")
   @@index([tenantId, type], map: "accounts_tenant_id_type_idx")
   @@map("accounts")
+}
+
+model Transaction {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String              @map("tenant_id") @db.Uuid
+  accountId            String              @map("account_id") @db.Uuid
+  type                 TransactionType
+  amount               Decimal             @db.Decimal(19, 2)
+  occurredOn           DateTime            @map("occurred_on") @db.Date
+  description          String?             @db.Text
+  status               TransactionStatus   @default(POSTED)
+  transferId           String?             @map("transfer_id") @db.Uuid
+  transferSide         TransferSide?       @map("transfer_side")
+  categoryId           String?             @map("category_id") @db.Uuid
+  categorizationStatus CategorizationStatus @default(UNCLASSIFIED) @map("categorization_status")
+  categorizationSource CategorizationSource? @map("categorization_source")
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant               Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "transactions_tenant_id_fkey")
+  account              Account             @relation(fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "transactions_account_id_fkey")
+  category             Category?           @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "transactions_category_id_fkey")
+
+  @@index([tenantId, occurredOn, id], map: "transactions_tenant_occurred_on_id_idx")
+  @@index([tenantId, accountId, occurredOn, id], map: "transactions_tenant_account_occurred_on_id_idx")
+  @@index([tenantId, transferId], map: "transactions_tenant_transfer_id_idx")
+  @@index([tenantId, categoryId], map: "transactions_tenant_category_id_idx")
+  @@map("transactions")
+}
+
+model Category {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  name         String        @db.VarChar(100)
+  source       CategorySource @default(USER)
+  status       CategoryStatus @default(ACTIVE)
+  archivedAt   DateTime?     @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "categories_tenant_id_fkey")
+  transactions Transaction[]
+  rules        CategoryRule[]
+
+  @@unique([tenantId, name], map: "categories_tenant_name_key")
+  @@index([tenantId, status, name], map: "categories_tenant_status_name_idx")
+  @@map("categories")
+}
+
+model CategoryRule {
+  id                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                    @map("tenant_id") @db.Uuid
+  categoryId         String                    @map("category_id") @db.Uuid
+  conditionField     CategoryRuleConditionField @map("condition_field")
+  conditionOperator  CategoryRuleOperator      @map("condition_operator")
+  conditionValue    String                    @map("condition_value") @db.Text
+  priority           Int                       @default(0)
+  status             CategoryRuleStatus        @default(ACTIVE)
+  removedAt          DateTime?                 @map("removed_at") @db.Timestamptz(3)
+  createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "category_rules_tenant_id_fkey")
+  category           Category                  @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "category_rules_category_id_fkey")
+
+  @@index([tenantId, status, priority, createdAt, id], map: "category_rules_tenant_status_priority_created_at_id_idx")
+  @@index([tenantId, categoryId, status], map: "category_rules_tenant_category_status_idx")
+  @@map("category_rules")
 }
 
 model AuditRecord {

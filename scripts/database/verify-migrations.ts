@@ -134,17 +134,26 @@ try {
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = 'public'
-        AND c.relname IN ('tenants', 'users', 'identity_links', 'accounts', 'audit_records')
+        AND c.relname IN (
+          'tenants',
+          'users',
+          'identity_links',
+          'accounts',
+          'audit_records',
+          'categories',
+          'transactions',
+          'category_rules'
+        )
       ORDER BY c.relname`,
   );
   const unsafeTables = protectedTables.rows.filter(
     ({ owner, row_security, force_row_security }) =>
       owner !== 'cfi_owner' || !row_security || !force_row_security,
   );
-  if (protectedTables.rows.length !== 5 || unsafeTables.length > 0) {
+  if (protectedTables.rows.length !== 8 || unsafeTables.length > 0) {
     throw new Error(
       `Protected table verification failed: ${JSON.stringify({
-        expectedCount: 5,
+        expectedCount: 8,
         actualCount: protectedTables.rows.length,
         unsafeTables,
       })}`,
