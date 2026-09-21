@@ -7,7 +7,9 @@ import {
 import { AuditModule } from '../audit/audit.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { AccountsController } from './adapters/inbound/accounts.controller.js';
+import { PrismaAccountOwnership } from './adapters/outbound/prisma-account-ownership.repository.js';
 import { PrismaAccountsRepository } from './adapters/outbound/prisma-accounts.repository.js';
+import { ACCOUNT_OWNERSHIP } from './application/ports/account-ownership.port.js';
 import {
   ACCOUNTS_REPOSITORY,
   type AccountMaintenanceScope,
@@ -23,6 +25,7 @@ import { UpdateAccount } from './application/use-cases/update-account.js';
   controllers: [AccountsController],
   providers: [
     PrismaAccountsRepository,
+    PrismaAccountOwnership,
     {
       provide: TENANT_UNIT_OF_WORK,
       useExisting: PrismaTenantUnitOfWork,
@@ -30,6 +33,10 @@ import { UpdateAccount } from './application/use-cases/update-account.js';
     {
       provide: ACCOUNTS_REPOSITORY,
       useExisting: PrismaAccountsRepository,
+    },
+    {
+      provide: ACCOUNT_OWNERSHIP,
+      useExisting: PrismaAccountOwnership,
     },
     {
       provide: CreateManualAccount,
@@ -56,5 +63,6 @@ import { UpdateAccount } from './application/use-cases/update-account.js';
       inject: [TENANT_UNIT_OF_WORK],
     },
   ],
+  exports: [ACCOUNT_OWNERSHIP],
 })
 export class AccountsModule {}

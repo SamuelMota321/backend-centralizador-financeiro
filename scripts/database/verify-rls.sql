@@ -19,7 +19,8 @@ BEGIN
     'public.audit_records'::regclass,
     'public.categories'::regclass,
     'public.transactions'::regclass,
-    'public.category_rules'::regclass
+    'public.category_rules'::regclass,
+    'public.idempotency_keys'::regclass
   )
   AND relrowsecurity;
 
@@ -33,7 +34,8 @@ BEGIN
     'public.audit_records'::regclass,
     'public.categories'::regclass,
     'public.transactions'::regclass,
-    'public.category_rules'::regclass
+    'public.category_rules'::regclass,
+    'public.idempotency_keys'::regclass
   )
   AND relforcerowsecurity;
 
@@ -48,7 +50,8 @@ BEGIN
       'audit_records',
       'categories',
       'transactions',
-      'category_rules'
+      'category_rules',
+      'idempotency_keys'
     );
 
   SELECT relowner::regrole INTO audit_owner
@@ -67,7 +70,7 @@ BEGIN
   FROM pg_roles
   WHERE rolname = 'cfi_test';
 
-  IF enabled_count <> 8 OR forced_count <> 8 OR policy_count <> 30 THEN
+  IF enabled_count <> 9 OR forced_count <> 9 OR policy_count <> 34 THEN
     RAISE EXCEPTION 'RLS verification failed: enabled %, forced %, policies %',
       enabled_count, forced_count, policy_count;
   END IF;
@@ -100,7 +103,11 @@ BEGIN
      OR NOT has_table_privilege('cfi_runtime', 'public.category_rules', 'SELECT')
      OR NOT has_table_privilege('cfi_runtime', 'public.category_rules', 'INSERT')
      OR NOT has_table_privilege('cfi_runtime', 'public.category_rules', 'UPDATE')
-     OR has_table_privilege('cfi_runtime', 'public.category_rules', 'DELETE') THEN
+     OR has_table_privilege('cfi_runtime', 'public.category_rules', 'DELETE')
+     OR NOT has_table_privilege('cfi_runtime', 'public.idempotency_keys', 'SELECT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.idempotency_keys', 'INSERT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.idempotency_keys', 'UPDATE')
+     OR has_table_privilege('cfi_runtime', 'public.idempotency_keys', 'DELETE') THEN
     RAISE EXCEPTION 'transactions runtime grants are unsafe';
   END IF;
   IF NOT has_table_privilege('cfi_test', 'public.categories', 'SELECT')
@@ -114,7 +121,11 @@ BEGIN
      OR NOT has_table_privilege('cfi_test', 'public.category_rules', 'SELECT')
      OR NOT has_table_privilege('cfi_test', 'public.category_rules', 'INSERT')
      OR NOT has_table_privilege('cfi_test', 'public.category_rules', 'UPDATE')
-     OR NOT has_table_privilege('cfi_test', 'public.category_rules', 'DELETE') THEN
+     OR NOT has_table_privilege('cfi_test', 'public.category_rules', 'DELETE')
+     OR NOT has_table_privilege('cfi_test', 'public.idempotency_keys', 'SELECT')
+     OR NOT has_table_privilege('cfi_test', 'public.idempotency_keys', 'INSERT')
+     OR NOT has_table_privilege('cfi_test', 'public.idempotency_keys', 'UPDATE')
+     OR NOT has_table_privilege('cfi_test', 'public.idempotency_keys', 'DELETE') THEN
     RAISE EXCEPTION 'transactions test grants are unsafe';
   END IF;
 END $$;

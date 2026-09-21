@@ -17,3 +17,27 @@ export class CategoryArchived extends Error {
 export class TransactionsTenantMismatch extends Error {
   override readonly name = 'TransactionsTenantMismatch';
 }
+
+export class InvalidTransactionRequest extends Error {
+  override readonly name = 'InvalidTransactionRequest';
+}
+
+export class TransactionAccountArchived extends Error {
+  override readonly name = 'TransactionAccountArchived';
+}
+
+export class TransferAccountsMustDiffer extends Error {
+  override readonly name = 'TransferAccountsMustDiffer';
+}
+
+export class IdempotencyKeyReused extends Error {
+  override readonly name = 'IdempotencyKeyReused';
+}
+
+export class IdempotencyKeyExpired extends Error {
+  override readonly name = 'IdempotencyKeyExpired';
+}
+
+export class IdempotencyRecordUnavailable extends Error {
+  override readonly name = 'IdempotencyRecordUnavailable';
+}

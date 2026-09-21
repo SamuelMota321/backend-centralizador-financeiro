@@ -5,6 +5,7 @@ import type { CategoryRuleSnapshot } from '../../domain/category-rule.js';
 import type { Category, CategorySnapshot } from '../../domain/category.js';
 import { Transaction } from '../../domain/transaction.js';
 import type { TransactionSnapshot } from '../../domain/transaction.js';
+import type { TenantIdempotencyRepository } from '../ports/idempotency.repository.port.js';
 import type {
   TenantCategoriesRepository,
   TenantCategoryRulesRepository,
@@ -74,9 +75,13 @@ function createRepository() {
   let capturedCategory: Category | undefined;
   const createTransaction = vi.fn(() => Promise.resolve(transactionSnapshot));
   const findTransactionById = vi.fn(() => Promise.resolve(transactionSnapshot));
+  const findTransactionsByIds = vi.fn(() =>
+    Promise.resolve([transactionSnapshot]),
+  );
   const transactions: TenantTransactionsRepository = {
     create: createTransaction,
     findById: findTransactionById,
+    findByIds: findTransactionsByIds,
   };
   const createCategory = vi.fn((category: Category) => {
     capturedCategory = category;
@@ -95,10 +100,18 @@ function createRepository() {
     create: createCategoryRule,
     findById: findCategoryRuleById,
   };
+  const idempotency: TenantIdempotencyRepository = {
+    find: vi.fn(() => Promise.resolve(null)),
+    claim: vi.fn(() =>
+      Promise.reject(new Error('Idempotency is not used by this fixture.')),
+    ),
+    complete: vi.fn(() => Promise.resolve()),
+  };
   const scope: TransactionPersistenceScope = {
     transactions,
     categories,
     categoryRules,
+    idempotency,
   };
   const withTenant: TransactionsRepository['withTenant'] = async <Result>(
     _tenantContext: TenantContext,
@@ -111,6 +124,7 @@ function createRepository() {
     spies: {
       createTransaction,
       findTransactionById,
+      findTransactionsByIds,
       createCategory,
       findCategoryById,
       createCategoryRule,

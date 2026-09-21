@@ -37,7 +37,8 @@ export class DatabaseSecurityCheckService implements OnApplicationBootstrap {
             'public.audit_records'::regclass,
             'public.categories'::regclass,
             'public.transactions'::regclass,
-            'public.category_rules'::regclass
+            'public.category_rules'::regclass,
+            'public.idempotency_keys'::regclass
           )
           AND protected.relowner = (current_user::regrole)::oid
         ) AS owns_protected_table

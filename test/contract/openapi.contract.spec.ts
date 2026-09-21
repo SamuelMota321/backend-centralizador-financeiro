@@ -66,11 +66,13 @@ describe('OpenAPI contract', () => {
     );
   });
 
-  it('publishes Transactions foundation schemas without exposing routes yet', () => {
+  it('publishes Transactions movement routes and foundation schemas', () => {
     const schemas = document.components?.schemas;
     for (const schemaName of [
       'TransactionView',
       'CreateTransaction',
+      'TransferView',
+      'CreateTransfer',
       'CategoryView',
       'CreateCategory',
       'CategoryRuleView',
@@ -78,7 +80,18 @@ describe('OpenAPI contract', () => {
     ]) {
       expect(schemas, schemaName).toHaveProperty(schemaName);
     }
-    expect(document.paths).not.toHaveProperty('/api/v1/transactions');
+    for (const path of ['/api/v1/transactions', '/api/v1/transfers']) {
+      const operation = document.paths?.[path]?.post;
+      expect(operation, `POST ${path}`).toBeDefined();
+      expect(operation?.security).toEqual([{ auth0: [] }]);
+      expect(operation?.responses).toHaveProperty('201');
+      for (const [status, response] of Object.entries(
+        operation?.responses ?? {},
+      )) {
+        if (!/^[45]\d\d$/.test(status)) continue;
+        expect(response.content).toHaveProperty('application/problem+json');
+      }
+    }
     expect(document.paths).not.toHaveProperty('/api/v1/categories');
     expect(document.paths).not.toHaveProperty('/api/v1/category-rules');
   });

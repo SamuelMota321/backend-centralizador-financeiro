@@ -82,6 +82,77 @@ export const CREATE_TRANSACTION_SCHEMA: SchemaObject = {
   },
 };
 
+export const TRANSFER_SCHEMA: SchemaObject = {
+  type: 'object',
+  required: ['entries'],
+  properties: {
+    entries: {
+      type: 'array',
+      minItems: 2,
+      maxItems: 2,
+      items: TRANSACTION_SCHEMA,
+    },
+  },
+};
+
+export const CREATE_TRANSFER_SCHEMA: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['fromAccountId', 'toAccountId', 'amount', 'occurredOn'],
+  properties: {
+    fromAccountId: UUID_SCHEMA,
+    toAccountId: UUID_SCHEMA,
+    amount: AMOUNT_SCHEMA,
+    occurredOn: DATE_SCHEMA,
+    description: { type: 'string', nullable: true },
+  },
+};
+
+export const TRANSACTION_PROBLEM_DETAILS_SCHEMA: SchemaObject = {
+  type: 'object',
+  required: ['type', 'title', 'status', 'code', 'detail'],
+  properties: {
+    type: { type: 'string' },
+    title: { type: 'string' },
+    status: { type: 'integer' },
+    code: { type: 'string' },
+    detail: { type: 'string' },
+    errors: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['path', 'code', 'message'],
+        properties: {
+          path: { type: 'string' },
+          code: { type: 'string' },
+          message: { type: 'string' },
+        },
+      },
+    },
+  },
+};
+
+export const TRANSACTION_PROBLEM_DETAILS_RESPONSE = {
+  content: {
+    'application/problem+json': {
+      schema: TRANSACTION_PROBLEM_DETAILS_SCHEMA,
+    },
+  },
+  headers: {
+    'X-Request-Id': {
+      description: 'Canonical request correlation identifier.',
+      schema: { type: 'string', format: 'uuid' },
+    },
+  },
+};
+
+export const TRANSACTION_REQUEST_ID_RESPONSE_HEADERS = {
+  'X-Request-Id': {
+    description: 'Canonical request correlation identifier.',
+    schema: { type: 'string', format: 'uuid' },
+  },
+};
+
 export const CATEGORY_SCHEMA: SchemaObject = {
   type: 'object',
   required: [
@@ -196,6 +267,8 @@ export const CATEGORY_RULE_PAGE_SCHEMA: SchemaObject = {
 export const TRANSACTIONS_OPENAPI_SCHEMAS: Record<string, SchemaObject> = {
   TransactionView: TRANSACTION_SCHEMA,
   CreateTransaction: CREATE_TRANSACTION_SCHEMA,
+  TransferView: TRANSFER_SCHEMA,
+  CreateTransfer: CREATE_TRANSFER_SCHEMA,
   TransactionPage: TRANSACTION_PAGE_SCHEMA,
   CategoryView: CATEGORY_SCHEMA,
   CreateCategory: CREATE_CATEGORY_SCHEMA,

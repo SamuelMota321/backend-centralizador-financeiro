@@ -8,12 +8,14 @@ import type {
   Transaction,
   TransactionSnapshot,
 } from '../../domain/transaction.js';
+import type { TenantIdempotencyRepository } from './idempotency.repository.port.js';
 
 export const TRANSACTIONS_REPOSITORY = Symbol('TRANSACTIONS_REPOSITORY');
 
 export interface TenantTransactionsRepository {
   create(transaction: Transaction): Promise<TransactionSnapshot>;
   findById(transactionId: string): Promise<TransactionSnapshot | null>;
+  findByIds(transactionIds: readonly string[]): Promise<TransactionSnapshot[]>;
 }
 
 export interface TenantCategoriesRepository {
@@ -30,6 +32,7 @@ export type TransactionPersistenceScope = Readonly<{
   transactions: TenantTransactionsRepository;
   categories: TenantCategoriesRepository;
   categoryRules: TenantCategoryRulesRepository;
+  idempotency: TenantIdempotencyRepository;
 }>;
 
 export interface TransactionsRepository {

@@ -19,6 +19,8 @@ describe('PrismaTransactionsRepository', () => {
   let first: TenantContext;
   let second: TenantContext;
   let accountId: string;
+  let secondAccountId: string;
+  let archivedAccountId: string;
 
   beforeAll(async () => {
     module = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -51,6 +53,32 @@ describe('PrismaTransactionsRepository', () => {
     const row = result.rows[0];
     if (!row) throw new Error('Expected a test account.');
     accountId = row.id;
+
+    const secondAccount = await withTenant(pool, second.tenantId, (client) =>
+      client.query<{ id: string }>(
+        `INSERT INTO accounts (
+           tenant_id, name, type, initial_balance, initial_balance_as_of
+         ) VALUES ($1, $2, 'checking', '0.00', DATE '2026-09-20')
+         RETURNING id`,
+        [second.tenantId, `Foreign transactions account ${randomUUID()}`],
+      ),
+    );
+    const foreignRow = secondAccount.rows[0];
+    if (!foreignRow) throw new Error('Expected a foreign test account.');
+    secondAccountId = foreignRow.id;
+
+    const archivedAccount = await withTenant(pool, first.tenantId, (client) =>
+      client.query<{ id: string }>(
+        `INSERT INTO accounts (
+           tenant_id, name, type, initial_balance, initial_balance_as_of, archived_at
+         ) VALUES ($1, $2, 'checking', '0.00', DATE '2026-09-20', CURRENT_TIMESTAMP)
+         RETURNING id`,
+        [first.tenantId, `Archived transactions account ${randomUUID()}`],
+      ),
+    );
+    const archivedRow = archivedAccount.rows[0];
+    if (!archivedRow) throw new Error('Expected an archived test account.');
+    archivedAccountId = archivedRow.id;
   });
 
   afterAll(async () => {
@@ -60,6 +88,10 @@ describe('PrismaTransactionsRepository', () => {
         await withTenant(pool, context.tenantId, async (client) => {
           await client.query(
             'DELETE FROM category_rules WHERE tenant_id = $1',
+            [context.tenantId],
+          );
+          await client.query(
+            'DELETE FROM idempotency_keys WHERE tenant_id = $1',
             [context.tenantId],
           );
           await client.query('DELETE FROM transactions WHERE tenant_id = $1', [
@@ -161,4 +193,104 @@ describe('PrismaTransactionsRepository', () => {
       ),
     ).rejects.toMatchObject({ code: '23514' });
   });
+
+  it('claims and completes an idempotency key inside the tenant scope', async () => {
+    const firstClaim = await repository.withTenant(first, (scope) =>
+      scope.idempotency.claim(
+        'transaction_create',
+        `persistence-${randomUUID()}`,
+        'a'.repeat(64),
+      ),
+    );
+    expect(firstClaim.claimed).toBe(true);
+
+    const repeatedClaim = await repository.withTenant(first, (scope) =>
+      scope.idempotency.claim(
+        firstClaim.record.operation,
+        firstClaim.record.key,
+        firstClaim.record.payloadHash,
+      ),
+    );
+    expect(repeatedClaim).toMatchObject({
+      claimed: false,
+      record: { id: firstClaim.record.id, status: 'pending' },
+    });
+
+    await repository.withTenant(first, (scope) =>
+      scope.idempotency.complete(firstClaim.record.id, [
+        transactionSnapshotId(),
+      ]),
+    );
+    const completed = await repository.withTenant(first, (scope) =>
+      scope.idempotency.find(
+        firstClaim.record.operation,
+        firstClaim.record.key,
+      ),
+    );
+    expect(completed).toMatchObject({
+      id: firstClaim.record.id,
+      status: 'completed',
+      resourceIds: [expect.any(String)],
+    });
+  });
+
+  it('rejects cross-tenant and archived accounts at persistence time', async () => {
+    const transferId = randomUUID();
+    const foreignTransaction = Transaction.createManual({
+      tenantId: first.tenantId,
+      accountId: secondAccountId,
+      type: 'income',
+      amount: '1.00',
+      occurredOn: '2026-09-20',
+    });
+    await expect(
+      repository.withTenant(first, (scope) =>
+        scope.transactions.create(foreignTransaction),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+
+    const archivedTransaction = Transaction.createTransferEntry({
+      tenantId: first.tenantId,
+      accountId: archivedAccountId,
+      amount: '1.00',
+      occurredOn: '2026-09-20',
+      transferId,
+      transferSide: 'outgoing',
+    });
+    await expect(
+      repository.withTenant(first, (scope) =>
+        scope.transactions.create(archivedTransaction),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+
+  it('rolls back a partial transfer when the unit of work fails', async () => {
+    const transferId = randomUUID();
+    const outgoing = Transaction.createTransferEntry({
+      tenantId: first.tenantId,
+      accountId,
+      amount: '2.00',
+      occurredOn: '2026-09-20',
+      transferId,
+      transferSide: 'outgoing',
+    });
+    await expect(
+      repository.run(first, async (scope) => {
+        await scope.transactions.create(outgoing);
+        throw new Error('rollback transfer');
+      }),
+    ).rejects.toThrow('rollback transfer');
+
+    const result = await withTenant(pool, first.tenantId, (client) =>
+      client.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM transactions WHERE transfer_id = $1',
+        [transferId],
+      ),
+    );
+    expect(result.rows[0]?.count).toBe('0');
+  });
+
+  function transactionSnapshotId(): string {
+    return randomUUID();
+  }
 });

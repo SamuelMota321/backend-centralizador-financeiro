@@ -19,6 +19,10 @@ export type TransactionView = Readonly<{
   updatedAt: string;
 }>;
 
+export type TransferView = Readonly<{
+  entries: readonly [TransactionView, TransactionView];
+}>;
+
 export type CategoryView = Readonly<{
   id: string;
   name: string;
@@ -60,6 +64,15 @@ export function toTransactionView(
     categorizationSource: snapshot.categorizationSource,
     createdAt: snapshot.createdAt,
     updatedAt: snapshot.updatedAt,
+  };
+}
+
+export function toTransferView(
+  outgoing: TransactionSnapshot,
+  incoming: TransactionSnapshot,
+): TransferView {
+  return {
+    entries: [toTransactionView(outgoing), toTransactionView(incoming)],
   };
 }
 

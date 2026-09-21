@@ -46,6 +46,7 @@ import type {
 } from '../../application/ports/transactions.repository.port.js';
 import type { TransactionsUnitOfWork } from '../../application/ports/transactions.unit-of-work.port.js';
 import { TransactionsTenantMismatch } from '../../application/transactions.errors.js';
+import { PrismaTenantIdempotencyRepository } from './prisma-idempotency.repository.js';
 
 const transactionSelect = {
   id: true,
@@ -292,6 +293,7 @@ class PrismaTransactionsPersistenceScope implements TransactionPersistenceScope 
   readonly transactions: TenantTransactionsRepository;
   readonly categories: TenantCategoriesRepository;
   readonly categoryRules: TenantCategoryRulesRepository;
+  readonly idempotency: PrismaTenantIdempotencyRepository;
 
   constructor(
     private readonly transaction: Prisma.TransactionClient,
@@ -306,6 +308,10 @@ class PrismaTransactionsPersistenceScope implements TransactionPersistenceScope 
       context,
     );
     this.categoryRules = new PrismaTenantCategoryRulesRepository(
+      transaction,
+      context,
+    );
+    this.idempotency = new PrismaTenantIdempotencyRepository(
       transaction,
       context,
     );
@@ -355,6 +361,27 @@ class PrismaTenantTransactionsRepository implements TenantTransactionsRepository
       select: transactionSelect,
     });
     return record ? toTransactionSnapshot(record) : null;
+  }
+
+  async findByIds(
+    transactionIds: readonly string[],
+  ): Promise<TransactionSnapshot[]> {
+    if (transactionIds.length === 0) return [];
+
+    const records = await this.transaction.transaction.findMany({
+      where: {
+        id: { in: [...transactionIds] },
+        tenantId: this.context.tenantId,
+      },
+      select: transactionSelect,
+    });
+    const recordsById = new Map(
+      records.map((record) => [record.id, toTransactionSnapshot(record)]),
+    );
+    return transactionIds.flatMap((transactionId) => {
+      const snapshot = recordsById.get(transactionId);
+      return snapshot ? [snapshot] : [];
+    });
   }
 }
 

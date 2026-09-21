@@ -11,7 +11,10 @@ import { CreateManualAccount } from '../src/modules/accounts/application/use-cas
 import { ListAccounts } from '../src/modules/accounts/application/use-cases/list-accounts.js';
 import { DeactivateAccount } from '../src/modules/accounts/application/use-cases/deactivate-account.js';
 import { UpdateAccount } from '../src/modules/accounts/application/use-cases/update-account.js';
+import { TransactionsController } from '../src/modules/transactions/adapters/inbound/transactions.controller.js';
 import { TRANSACTIONS_OPENAPI_SCHEMAS } from '../src/modules/transactions/adapters/inbound/transactions-openapi.schema.js';
+import { CreateAccountingTransfer } from '../src/modules/transactions/application/use-cases/create-accounting-transfer.js';
+import { CreateManualTransaction } from '../src/modules/transactions/application/use-cases/create-manual-transaction.js';
 import {
   ACCESS_TOKEN_VERIFIER,
   type AccessTokenVerifier,
@@ -45,6 +48,16 @@ const deactivateAccount: Pick<DeactivateAccount, 'execute'> = {
     Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
 };
 
+const createManualTransaction: Pick<CreateManualTransaction, 'execute'> = {
+  execute: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+};
+
+const createAccountingTransfer: Pick<CreateAccountingTransfer, 'execute'> = {
+  execute: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+};
+
 const accessTokenVerifier: AccessTokenVerifier = {
   verify: () =>
     Promise.reject(new Error('OpenAPI generation does not verify tokens.')),
@@ -56,7 +69,7 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
 };
 
 @Module({
-  controllers: [HealthController, AccountsController],
+  controllers: [HealthController, AccountsController, TransactionsController],
   providers: [
     {
       provide: DatabaseSecurityCheckService,
@@ -66,6 +79,8 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     { provide: ListAccounts, useValue: listAccounts },
     { provide: UpdateAccount, useValue: updateAccount },
     { provide: DeactivateAccount, useValue: deactivateAccount },
+    { provide: CreateManualTransaction, useValue: createManualTransaction },
+    { provide: CreateAccountingTransfer, useValue: createAccountingTransfer },
     { provide: ACCESS_TOKEN_VERIFIER, useValue: accessTokenVerifier },
     { provide: ResolveIdentityContext, useValue: resolveIdentityContext },
   ],

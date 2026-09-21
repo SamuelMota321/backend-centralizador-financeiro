@@ -115,6 +115,13 @@ enum CategoryRuleOperator {
   @@map("category_rule_operator")
 }
 
+enum IdempotencyStatus {
+  PENDING   @map("pending")
+  COMPLETED @map("completed")
+
+  @@map("idempotency_status")
+}
+
 enum AuditAction {
   ACCOUNT_UPDATED     @map("account_updated")
   ACCOUNT_DEACTIVATED @map("account_deactivated")
@@ -144,6 +151,7 @@ model Tenant {
   categories   Category[]
   categoryRules CategoryRule[]
   auditRecords AuditRecord[]
+  idempotencyKeys IdempotencyKey[]
 
   @@map("tenants")
 }
@@ -225,6 +233,23 @@ model Transaction {
   @@index([tenantId, transferId], map: "transactions_tenant_transfer_id_idx")
   @@index([tenantId, categoryId], map: "transactions_tenant_category_id_idx")
   @@map("transactions")
+}
+
+model IdempotencyKey {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String           @map("tenant_id") @db.Uuid
+  operation    String           @db.VarChar(100)
+  key          String           @db.VarChar(255)
+  payloadHash  String           @map("payload_hash") @db.Char(64)
+  status       IdempotencyStatus @default(PENDING)
+  resourceIds  Json             @default("[]") @map("resource_ids")
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt    DateTime         @map("expires_at") @db.Timestamptz(3)
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "idempotency_keys_tenant_id_fkey")
+
+  @@unique([tenantId, operation, key], map: "idempotency_keys_tenant_operation_key_key")
+  @@index([tenantId, expiresAt], map: "idempotency_keys_tenant_expires_at_idx")
+  @@map("idempotency_keys")
 }
 
 model Category {

@@ -1892,6 +1892,716 @@
         "summary": "Deactivate an account",
         "tags": ["accounts"]
       }
+    },
+    "/api/v1/transactions": {
+      "post": {
+        "operationId": "TransactionsController_createTransaction",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string", "minLength": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["accountId", "type", "amount", "occurredOn"],
+                "properties": {
+                  "accountId": { "type": "string", "format": "uuid" },
+                  "type": { "type": "string", "enum": ["income", "expense"] },
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+                  },
+                  "occurredOn": { "type": "string", "format": "date" },
+                  "description": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "accountId",
+                    "type",
+                    "amount",
+                    "occurredOn",
+                    "description",
+                    "status",
+                    "transferId",
+                    "transferSide",
+                    "categoryId",
+                    "categorizationStatus",
+                    "categorizationSource",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "accountId": { "type": "string", "format": "uuid" },
+                    "type": {
+                      "type": "string",
+                      "enum": ["income", "expense", "transfer"]
+                    },
+                    "amount": {
+                      "type": "string",
+                      "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+                    },
+                    "occurredOn": { "type": "string", "format": "date" },
+                    "description": { "type": "string", "nullable": true },
+                    "status": {
+                      "type": "string",
+                      "enum": ["posted", "voided"]
+                    },
+                    "transferId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
+                    "transferSide": {
+                      "type": "string",
+                      "enum": ["outgoing", "incoming"],
+                      "nullable": true
+                    },
+                    "categoryId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
+                    "categorizationStatus": {
+                      "type": "string",
+                      "enum": [
+                        "unclassified",
+                        "categorized",
+                        "uncertain",
+                        "unrecognized",
+                        "not_applicable"
+                      ]
+                    },
+                    "categorizationSource": {
+                      "type": "string",
+                      "enum": ["manual", "rule"],
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Register a manual income or expense",
+        "tags": ["transactions"]
+      }
+    },
+    "/api/v1/transfers": {
+      "post": {
+        "operationId": "TransactionsController_createTransfer",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string", "minLength": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "fromAccountId",
+                  "toAccountId",
+                  "amount",
+                  "occurredOn"
+                ],
+                "properties": {
+                  "fromAccountId": { "type": "string", "format": "uuid" },
+                  "toAccountId": { "type": "string", "format": "uuid" },
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+                  },
+                  "occurredOn": { "type": "string", "format": "date" },
+                  "description": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["entries"],
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "accountId",
+                          "type",
+                          "amount",
+                          "occurredOn",
+                          "description",
+                          "status",
+                          "transferId",
+                          "transferSide",
+                          "categoryId",
+                          "categorizationStatus",
+                          "categorizationSource",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "accountId": { "type": "string", "format": "uuid" },
+                          "type": {
+                            "type": "string",
+                            "enum": ["income", "expense", "transfer"]
+                          },
+                          "amount": {
+                            "type": "string",
+                            "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+                          },
+                          "occurredOn": { "type": "string", "format": "date" },
+                          "description": { "type": "string", "nullable": true },
+                          "status": {
+                            "type": "string",
+                            "enum": ["posted", "voided"]
+                          },
+                          "transferId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "transferSide": {
+                            "type": "string",
+                            "enum": ["outgoing", "incoming"],
+                            "nullable": true
+                          },
+                          "categoryId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "categorizationStatus": {
+                            "type": "string",
+                            "enum": [
+                              "unclassified",
+                              "categorized",
+                              "uncertain",
+                              "unrecognized",
+                              "not_applicable"
+                            ]
+                          },
+                          "categorizationSource": {
+                            "type": "string",
+                            "enum": ["manual", "rule"],
+                            "nullable": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Register an accounting transfer between accounts",
+        "tags": ["transactions"]
+      }
     }
   },
   "info": {
@@ -1980,6 +2690,98 @@
         "properties": {
           "accountId": { "type": "string", "format": "uuid" },
           "type": { "type": "string", "enum": ["income", "expense"] },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+          },
+          "occurredOn": { "type": "string", "format": "date" },
+          "description": { "type": "string", "nullable": true }
+        }
+      },
+      "TransferView": {
+        "type": "object",
+        "required": ["entries"],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "accountId",
+                "type",
+                "amount",
+                "occurredOn",
+                "description",
+                "status",
+                "transferId",
+                "transferSide",
+                "categoryId",
+                "categorizationStatus",
+                "categorizationSource",
+                "createdAt",
+                "updatedAt"
+              ],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "accountId": { "type": "string", "format": "uuid" },
+                "type": {
+                  "type": "string",
+                  "enum": ["income", "expense", "transfer"]
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+                },
+                "occurredOn": { "type": "string", "format": "date" },
+                "description": { "type": "string", "nullable": true },
+                "status": { "type": "string", "enum": ["posted", "voided"] },
+                "transferId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
+                "transferSide": {
+                  "type": "string",
+                  "enum": ["outgoing", "incoming"],
+                  "nullable": true
+                },
+                "categoryId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
+                "categorizationStatus": {
+                  "type": "string",
+                  "enum": [
+                    "unclassified",
+                    "categorized",
+                    "uncertain",
+                    "unrecognized",
+                    "not_applicable"
+                  ]
+                },
+                "categorizationSource": {
+                  "type": "string",
+                  "enum": ["manual", "rule"],
+                  "nullable": true
+                },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "updatedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      },
+      "CreateTransfer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fromAccountId", "toAccountId", "amount", "occurredOn"],
+        "properties": {
+          "fromAccountId": { "type": "string", "format": "uuid" },
+          "toAccountId": { "type": "string", "format": "uuid" },
           "amount": {
             "type": "string",
             "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
