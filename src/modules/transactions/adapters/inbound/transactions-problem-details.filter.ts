@@ -14,6 +14,9 @@ import {
   IdempotencyKeyReused,
   IdempotencyRecordUnavailable,
   InvalidTransactionRequest,
+  CategoryArchived,
+  CategoryNotFound,
+  TransactionNotFound,
   TransactionAccountArchived,
   TransactionAccountNotFound,
   TransactionsTenantMismatch,
@@ -24,6 +27,12 @@ import {
   InvalidTransactionDate,
   InvalidTransactionState,
   InvalidTransactionType,
+  InvalidCategoryName,
+  InvalidCategoryRule,
+  InvalidCategoryState,
+  CategoryRuleRemoved,
+  TransactionCategorizationNotAllowed,
+  CategoryRuleNotFound,
 } from '../../domain/transactions.errors.js';
 
 type ValidationProblem = Readonly<{
@@ -106,6 +115,45 @@ export class TransactionsProblemDetailsFilter implements ExceptionFilter {
         detail: 'Archived accounts cannot receive new transactions.',
       };
     }
+    if (exception instanceof TransactionNotFound) {
+      return {
+        type: 'about:blank',
+        title: 'Transaction not found',
+        status: 404,
+        code: 'TRANSACTION_NOT_FOUND',
+        detail: 'The requested transaction was not found.',
+      };
+    }
+    if (exception instanceof CategoryNotFound) {
+      return {
+        type: 'about:blank',
+        title: 'Category not found',
+        status: 404,
+        code: 'CATEGORY_NOT_FOUND',
+        detail: 'The requested category was not found.',
+      };
+    }
+    if (exception instanceof CategoryRuleNotFound) {
+      return {
+        type: 'about:blank',
+        title: 'Category rule not found',
+        status: 404,
+        code: 'CATEGORY_RULE_NOT_FOUND',
+        detail: 'The requested category rule was not found.',
+      };
+    }
+    if (exception instanceof CategoryArchived) {
+      return problem409(
+        'CATEGORY_ARCHIVED',
+        'Archived categories cannot be assigned or used by new rules.',
+      );
+    }
+    if (exception instanceof CategoryRuleRemoved) {
+      return problem409(
+        'CATEGORY_RULE_CONFLICT',
+        'Removed category rules cannot be reactivated or edited.',
+      );
+    }
     if (exception instanceof TransferAccountsMustDiffer) {
       return problem400(
         'TRANSFER_ACCOUNTS_MUST_DIFFER',
@@ -129,11 +177,20 @@ export class TransactionsProblemDetailsFilter implements ExceptionFilter {
       exception instanceof InvalidTransactionDate ||
       exception instanceof InvalidTransactionType ||
       exception instanceof InvalidTransactionState ||
-      exception instanceof InvalidTransactionRequest
+      exception instanceof InvalidTransactionRequest ||
+      exception instanceof InvalidCategoryName ||
+      exception instanceof InvalidCategoryRule ||
+      exception instanceof InvalidCategoryState
     ) {
       return problem400(
         'INVALID_REQUEST',
         'The request contains invalid fields.',
+      );
+    }
+    if (exception instanceof TransactionCategorizationNotAllowed) {
+      return problem409(
+        'TRANSACTION_CATEGORIZATION_NOT_ALLOWED',
+        'The transaction cannot receive a category in its current state.',
       );
     }
 

@@ -28,6 +28,8 @@ type TransactionBody = {
   transferSide: string | null;
 };
 type TransferBody = { entries: TransactionBody[] };
+type CategoryBody = { id: string };
+type RuleBody = { id: string };
 
 describe('transactions API', () => {
   let app: NestExpressApplication;
@@ -81,14 +83,18 @@ describe('transactions API', () => {
       for (const context of [first, second]) {
         if (!context) continue;
         await withTenant(pool, context.tenant_id, async (client) => {
-          await client.query('DELETE FROM audit_records WHERE tenant_id = $1', [
-            context.tenant_id,
-          ]);
           await client.query(
             'DELETE FROM idempotency_keys WHERE tenant_id = $1',
             [context.tenant_id],
           );
+          await client.query(
+            'DELETE FROM category_rules WHERE tenant_id = $1',
+            [context.tenant_id],
+          );
           await client.query('DELETE FROM transactions WHERE tenant_id = $1', [
+            context.tenant_id,
+          ]);
+          await client.query('DELETE FROM categories WHERE tenant_id = $1', [
             context.tenant_id,
           ]);
           await client.query('DELETE FROM accounts WHERE tenant_id = $1', [
@@ -96,12 +102,6 @@ describe('transactions API', () => {
           ]);
           await client.query('DELETE FROM identity_links WHERE user_id = $1', [
             context.user_id,
-          ]);
-          await client.query('DELETE FROM users WHERE id = $1', [
-            context.user_id,
-          ]);
-          await client.query('DELETE FROM tenants WHERE id = $1', [
-            context.tenant_id,
           ]);
         });
       }
@@ -295,6 +295,105 @@ describe('transactions API', () => {
     expect(archivedResponse.body).toMatchObject({
       code: 'ACCOUNT_ARCHIVED',
       status: 409,
+    });
+  });
+
+  it('categorizes transactions with personal rules and preserves explicit corrections', async () => {
+    const account = await createAccount('valid-first', 'Conta categorização');
+    const category = await request(server)
+      .post('/api/v1/categories')
+      .set('Authorization', 'Bearer valid-first')
+      .send({ name: `Mercado ${randomUUID()}` })
+      .expect(201);
+    const secondCategory = await request(server)
+      .post('/api/v1/categories')
+      .set('Authorization', 'Bearer valid-first')
+      .send({ name: `Lazer ${randomUUID()}` })
+      .expect(201);
+    const categoryBody = category.body as CategoryBody;
+    const secondCategoryBody = secondCategory.body as CategoryBody;
+    const rule = await request(server)
+      .post('/api/v1/category-rules')
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        categoryId: categoryBody.id,
+        conditionField: 'description',
+        conditionOperator: 'contains',
+        conditionValue: 'mercado',
+        priority: 10,
+      })
+      .expect(201);
+    const ruleBody = rule.body as RuleBody;
+
+    const created = await request(server)
+      .post('/api/v1/transactions')
+      .set('Authorization', 'Bearer valid-first')
+      .set('Idempotency-Key', `categorization-${randomUUID()}`)
+      .send({
+        accountId: account.id,
+        type: 'expense',
+        amount: '22.00',
+        occurredOn: '2026-09-20',
+        description: 'Compra no Mercado',
+      })
+      .expect(201);
+    expect(created.body).toMatchObject({
+      categoryId: categoryBody.id,
+      categorizationStatus: 'categorized',
+      categorizationSource: 'rule',
+    });
+
+    const corrected = await request(server)
+      .patch(`/api/v1/transactions/${(created.body as { id: string }).id}/category`)
+      .set('Authorization', 'Bearer valid-first')
+      .send({ categoryId: secondCategoryBody.id })
+      .expect(200);
+    expect(corrected.body).toMatchObject({
+      categoryId: secondCategoryBody.id,
+      categorizationStatus: 'categorized',
+      categorizationSource: 'manual',
+    });
+
+    const uncertain = await request(server)
+      .patch(`/api/v1/transactions/${(created.body as { id: string }).id}/category`)
+      .set('Authorization', 'Bearer valid-first')
+      .send({ categorizationStatus: 'uncertain' })
+      .expect(200);
+    expect(uncertain.body).toMatchObject({
+      categoryId: null,
+      categorizationStatus: 'uncertain',
+      categorizationSource: null,
+    });
+
+    await request(server)
+      .post(`/api/v1/category-rules/${ruleBody.id}/deactivate`)
+      .set('Authorization', 'Bearer valid-first')
+      .expect(200);
+    await request(server)
+      .post(`/api/v1/category-rules/${ruleBody.id}/activate`)
+      .set('Authorization', 'Bearer valid-first')
+      .expect(200);
+    await request(server)
+      .delete(`/api/v1/category-rules/${ruleBody.id}`)
+      .set('Authorization', 'Bearer valid-first')
+      .expect(200);
+    const reactivation = await request(server)
+      .post(`/api/v1/category-rules/${ruleBody.id}/activate`)
+      .set('Authorization', 'Bearer valid-first')
+      .expect(409);
+    expect(reactivation.body).toMatchObject({
+      code: 'CATEGORY_RULE_CONFLICT',
+      status: 409,
+    });
+
+    const foreignRuleUpdate = await request(server)
+      .patch(`/api/v1/category-rules/${ruleBody.id}`)
+      .set('Authorization', 'Bearer valid-second')
+      .send({ priority: 99 })
+      .expect(404);
+    expect(foreignRuleUpdate.body).toMatchObject({
+      code: 'CATEGORY_RULE_NOT_FOUND',
+      status: 404,
     });
   });
 

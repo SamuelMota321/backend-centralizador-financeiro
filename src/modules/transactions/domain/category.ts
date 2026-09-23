@@ -83,6 +83,20 @@ export class Category {
             archivedAt: parseDateTime(updatedAt),
             updatedAt: parseDateTime(updatedAt),
           }
+      : null,
+    );
+  }
+
+  rename(name: string, updatedAt: string): Category {
+    if (this.props.status === 'archived') {
+      throw new InvalidCategoryState('Archived categories cannot be edited.');
+    }
+    const normalizedName = normalizeCategoryName(name);
+    const timestamp = parseDateTime(updatedAt);
+    return new Category(
+      { ...this.props, name: normalizedName },
+      this.snapshot
+        ? { ...this.snapshot, name: normalizedName, updatedAt: timestamp }
         : null,
     );
   }

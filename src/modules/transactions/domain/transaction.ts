@@ -176,6 +176,36 @@ export class Transaction {
             categorizationSource: source,
             updatedAt: parseDateTime(updatedAt),
           }
+      : null,
+    );
+  }
+
+  markUncertain(
+    status: 'uncertain' | 'unrecognized',
+    updatedAt: string,
+  ): Transaction {
+    if (this.props.type === 'transfer' || this.props.status === 'voided') {
+      throw new TransactionCategorizationNotAllowed(
+        'Only posted income and expense transactions can be categorized.',
+      );
+    }
+
+    const timestamp = parseDateTime(updatedAt);
+    return new Transaction(
+      {
+        ...this.props,
+        categoryId: null,
+        categorizationStatus: status,
+        categorizationSource: null,
+      },
+      this.snapshot
+        ? {
+            ...this.snapshot,
+            categoryId: null,
+            categorizationStatus: status,
+            categorizationSource: null,
+            updatedAt: timestamp,
+          }
         : null,
     );
   }
@@ -231,7 +261,10 @@ export class Transaction {
     if (this.props.categoryId === null) {
       if (
         this.props.categorizationStatus === 'categorized' ||
-        this.props.categorizationSource !== null
+        this.props.categorizationSource !== null ||
+        !['unclassified', 'uncertain', 'unrecognized'].includes(
+          this.props.categorizationStatus,
+        )
       ) {
         throw new InvalidTransactionState(
           'A categorized transaction requires a category and source.',

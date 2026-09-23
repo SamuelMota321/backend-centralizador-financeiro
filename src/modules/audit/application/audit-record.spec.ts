@@ -54,4 +54,40 @@ describe('AuditRecord', () => {
       }),
     ).toThrow(InvalidAuditRecord);
   });
+
+  it('accepts categorization and rule audit actions without domain values', () => {
+    expect(
+      AuditRecord.create({
+        ...base,
+        action: 'transaction_category_updated',
+        resourceType: 'transaction',
+        metadata: {
+          changedFields: [
+            'categoryId',
+            'categorizationStatus',
+            'categorizationSource',
+          ],
+        },
+      }).props.resourceType,
+    ).toBe('transaction');
+    expect(
+      AuditRecord.create({
+        ...base,
+        action: 'category_rule_removed',
+        resourceType: 'category_rule',
+        metadata: { changedFields: ['status'] },
+      }).props.action,
+    ).toBe('category_rule_removed');
+  });
+
+  it('rejects an action/resource pair outside the audit contract', () => {
+    expect(() =>
+      AuditRecord.create({
+        ...base,
+        action: 'category_updated',
+        resourceType: 'transaction',
+        metadata: { changedFields: ['name'] },
+      }),
+    ).toThrow(InvalidAuditRecord);
+  });
 });

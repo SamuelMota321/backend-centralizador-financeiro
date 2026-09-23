@@ -1,7 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import {
   assertTenantContext,
   type TenantContext,
 } from '../../../../shared/application/tenant-context.js';
+import { AuditRecord } from '../../../audit/application/audit-record.js';
+import { CategoryRule } from '../../domain/category-rule.js';
 import { Transaction } from '../../domain/transaction.js';
 import {
   assertReplayable,
@@ -40,6 +43,7 @@ export class CreateManualTransaction {
     context: TenantContext,
     idempotencyKey: string,
     input: CreateManualTransactionCommand,
+    requestId: string = randomUUID(),
   ): Promise<TransactionView> {
     assertTenantContext(context);
     assertMovementInput(input.accountId, idempotencyKey);
@@ -100,8 +104,31 @@ export class CreateManualTransaction {
         return toTransactionView(snapshots[0]);
       }
 
-      const snapshot = await scope.transactions.create(transaction);
+      const activeRules = await scope.categoryRules.findActiveForEvaluation();
+      const matchingRule = activeRules
+        .map((ruleSnapshot) => CategoryRule.reconstitute(ruleSnapshot))
+        .find((rule) => rule.matches(transaction));
+      const transactionToPersist = matchingRule
+        ? transaction.categorize(
+            matchingRule.props.categoryId,
+            'rule',
+            new Date().toISOString(),
+          )
+        : transaction;
+      const snapshot = await scope.transactions.create(transactionToPersist);
       await scope.idempotency.complete(claim.record.id, [snapshot.id]);
+      await scope.audit.write(
+        AuditRecord.create({
+          tenantId: context.tenantId,
+          actorUserId: context.userId,
+          action: 'transaction_created',
+          resourceType: 'transaction',
+          resourceId: snapshot.id,
+          outcome: 'success',
+          requestId,
+          metadata: { changedFields: [] },
+        }),
+      );
       return toTransactionView(snapshot);
     });
   }

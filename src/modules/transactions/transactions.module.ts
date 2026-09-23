@@ -15,7 +15,15 @@ import { CreateCategory } from './application/use-cases/create-category.js';
 import { CreateCategoryRule } from './application/use-cases/create-category-rule.js';
 import { CreateAccountingTransfer } from './application/use-cases/create-accounting-transfer.js';
 import { CreateManualTransaction } from './application/use-cases/create-manual-transaction.js';
+import { DeactivateCategory } from './application/use-cases/deactivate-category.js';
+import { CategoryRuleLifecycle } from './application/use-cases/category-rule-lifecycle.js';
 import { GetTransaction } from './application/use-cases/get-transaction.js';
+import { ListCategories } from './application/use-cases/list-categories.js';
+import { ListCategoryRules } from './application/use-cases/list-category-rules.js';
+import { ListTransactions } from './application/use-cases/list-transactions.js';
+import { UpdateCategory } from './application/use-cases/update-category.js';
+import { UpdateCategoryRule } from './application/use-cases/update-category-rule.js';
+import { UpdateTransactionCategory } from './application/use-cases/update-transaction-category.js';
 import {
   TRANSACTIONS_REPOSITORY,
   type TransactionsRepository,
@@ -79,9 +87,66 @@ import {
     },
     {
       provide: CreateCategoryRule,
+      useFactory: (
+        repository: TransactionsRepository,
+        accountState: TransactionAccountStateReader,
+      ) => new CreateCategoryRule(repository, accountState),
+      inject: [TRANSACTIONS_REPOSITORY, TRANSACTION_ACCOUNT_STATE],
+    },
+    {
+      provide: ListTransactions,
       useFactory: (repository: TransactionsRepository) =>
-        new CreateCategoryRule(repository),
+        new ListTransactions(repository),
       inject: [TRANSACTIONS_REPOSITORY],
+    },
+    {
+      provide: UpdateTransactionCategory,
+      useFactory: (repository: TransactionsRepository) =>
+        new UpdateTransactionCategory(repository),
+      inject: [TRANSACTIONS_REPOSITORY],
+    },
+    {
+      provide: ListCategories,
+      useFactory: (repository: TransactionsRepository) =>
+        new ListCategories(repository),
+      inject: [TRANSACTIONS_REPOSITORY],
+    },
+    {
+      provide: UpdateCategory,
+      useFactory: (unitOfWork: TransactionsUnitOfWork) =>
+        new UpdateCategory(unitOfWork),
+      inject: [TRANSACTIONS_UNIT_OF_WORK],
+    },
+    {
+      provide: DeactivateCategory,
+      useFactory: (unitOfWork: TransactionsUnitOfWork) =>
+        new DeactivateCategory(unitOfWork),
+      inject: [TRANSACTIONS_UNIT_OF_WORK],
+    },
+    {
+      provide: ListCategoryRules,
+      useFactory: (repository: TransactionsRepository) =>
+        new ListCategoryRules(repository),
+      inject: [TRANSACTIONS_REPOSITORY],
+    },
+    {
+      provide: UpdateCategoryRule,
+      useFactory: (
+        repository: TransactionsRepository,
+        unitOfWork: TransactionsUnitOfWork,
+        accountState: TransactionAccountStateReader,
+      ) => new UpdateCategoryRule(repository, unitOfWork, accountState),
+      inject: [
+        TRANSACTIONS_REPOSITORY,
+        TRANSACTIONS_UNIT_OF_WORK,
+        TRANSACTION_ACCOUNT_STATE,
+      ],
+    },
+    {
+      provide: CategoryRuleLifecycle,
+      useFactory: (unitOfWork: TransactionsUnitOfWork) =>
+        new CategoryRuleLifecycle(unitOfWork),
+      inject: [TRANSACTIONS_UNIT_OF_WORK],
     },
     {
       provide: GetTransaction,
@@ -99,6 +164,14 @@ import {
     GetTransaction,
     CreateManualTransaction,
     CreateAccountingTransfer,
+    ListTransactions,
+    UpdateTransactionCategory,
+    ListCategories,
+    UpdateCategory,
+    DeactivateCategory,
+    ListCategoryRules,
+    UpdateCategoryRule,
+    CategoryRuleLifecycle,
   ],
 })
 export class TransactionsModule {}

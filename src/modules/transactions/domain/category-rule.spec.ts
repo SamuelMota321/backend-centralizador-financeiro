@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { CategoryRule } from './category-rule.js';
+import { Transaction } from './transaction.js';
 import {
   CategoryRuleRemoved,
   InvalidCategoryRule,
@@ -60,5 +61,89 @@ describe('CategoryRule', () => {
     expect(() => removed.activate('2026-09-20T10:03:00.000Z')).toThrow(
       CategoryRuleRemoved,
     );
+  });
+
+  it('matches normalized descriptions case-insensitively', () => {
+    const rule = CategoryRule.create({
+      ...base,
+      conditionField: 'description',
+      conditionOperator: 'contains',
+      conditionValue: '  mercado   central ',
+      priority: 5,
+    });
+    const transaction = Transaction.createManual({
+      tenantId: base.tenantId,
+      accountId: randomUUID(),
+      type: 'expense',
+      amount: '12.00',
+      occurredOn: '2026-09-20',
+      description: 'Compra no MERCADO CENTRAL',
+    });
+
+    expect(rule.matches(transaction)).toBe(true);
+    expect(
+      rule.deactivate('2026-09-20T10:00:00.000Z').matches(transaction),
+    ).toBe(false);
+  });
+
+  it('matches type and account conditions with their restricted operator', () => {
+    const accountId = randomUUID();
+    const transaction = Transaction.createManual({
+      tenantId: base.tenantId,
+      accountId,
+      type: 'income',
+      amount: '20.00',
+      occurredOn: '2026-09-20',
+    });
+    const typeRule = CategoryRule.create({
+      ...base,
+      conditionField: 'type',
+      conditionOperator: 'equals',
+      conditionValue: 'INCOME',
+      priority: 1,
+    });
+    const accountRule = CategoryRule.create({
+      ...base,
+      conditionField: 'accountId',
+      conditionOperator: 'equals',
+      conditionValue: accountId.toUpperCase(),
+      priority: 1,
+    });
+
+    expect(typeRule.matches(transaction)).toBe(true);
+    expect(accountRule.matches(transaction)).toBe(true);
+  });
+
+  it('edits conditions while preserving lifecycle and rejects removed rules', () => {
+    const rule = CategoryRule.create({
+      ...base,
+      conditionField: 'description',
+      conditionOperator: 'equals',
+      conditionValue: 'mercado',
+      priority: 1,
+    });
+    const snapshot = {
+      id: randomUUID(),
+      ...rule.props,
+      createdAt: '2026-09-20T10:00:00.000Z',
+      updatedAt: '2026-09-20T10:00:00.000Z',
+    };
+    const reconstituted = CategoryRule.reconstitute(snapshot);
+    const updated = reconstituted.update(
+      { conditionOperator: 'starts_with', conditionValue: 'merc' },
+      '2026-09-20T10:01:00.000Z',
+    );
+
+    expect(updated.props).toMatchObject({
+      conditionOperator: 'starts_with',
+      conditionValue: 'merc',
+      status: 'active',
+    });
+    expect(() =>
+      updated.remove('2026-09-20T10:02:00.000Z').update(
+        { priority: 2 },
+        '2026-09-20T10:03:00.000Z',
+      ),
+    ).toThrow(CategoryRuleRemoved);
   });
 });

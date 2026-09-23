@@ -125,4 +125,30 @@ describe('Transaction', () => {
       transfer.categorize(categoryId, 'manual', '2026-09-20T10:00:00.000Z'),
     ).toThrow(TransactionCategorizationNotAllowed);
   });
+
+  it('keeps uncertain and unrecognized categorization explicit', () => {
+    const transaction = Transaction.createManual({
+      tenantId,
+      accountId,
+      type: 'expense',
+      amount: '8.00',
+      occurredOn: '2026-09-20',
+    });
+
+    const uncertain = transaction.markUncertain(
+      'uncertain',
+      '2026-09-20T10:01:00.000Z',
+    );
+    const unrecognized = uncertain.markUncertain(
+      'unrecognized',
+      '2026-09-20T10:02:00.000Z',
+    );
+
+    expect(uncertain.props).toMatchObject({
+      categoryId: null,
+      categorizationStatus: 'uncertain',
+      categorizationSource: null,
+    });
+    expect(unrecognized.props.categorizationStatus).toBe('unrecognized');
+  });
 });

@@ -54,6 +54,7 @@ describe('accounts API', () => {
       .useValue(verifier)
       .compile();
     app = module.createNestApplication();
+    app.useLogger(false);
     app.setGlobalPrefix('api/v1');
     await app.init();
     server = app.getHttpServer() as Server;

@@ -75,16 +75,38 @@ describe('OpenAPI contract', () => {
       'CreateTransfer',
       'CategoryView',
       'CreateCategory',
+      'UpdateCategory',
       'CategoryRuleView',
       'CreateCategoryRule',
+      'UpdateCategoryRule',
+      'UpdateTransactionCategory',
+      'TransactionPage',
+      'CategoryPage',
+      'CategoryRulePage',
     ]) {
       expect(schemas, schemaName).toHaveProperty(schemaName);
     }
-    for (const path of ['/api/v1/transactions', '/api/v1/transfers']) {
-      const operation = document.paths?.[path]?.post;
-      expect(operation, `POST ${path}`).toBeDefined();
+    const operations: Array<[string, string, string]> = [
+      ['/api/v1/transactions', 'post', '201'],
+      ['/api/v1/transactions', 'get', '200'],
+      ['/api/v1/transactions/{transactionId}/category', 'patch', '200'],
+      ['/api/v1/transfers', 'post', '201'],
+      ['/api/v1/categories', 'get', '200'],
+      ['/api/v1/categories', 'post', '201'],
+      ['/api/v1/categories/{categoryId}', 'patch', '200'],
+      ['/api/v1/categories/{categoryId}/deactivate', 'post', '200'],
+      ['/api/v1/category-rules', 'get', '200'],
+      ['/api/v1/category-rules', 'post', '201'],
+      ['/api/v1/category-rules/{ruleId}', 'patch', '200'],
+      ['/api/v1/category-rules/{ruleId}/activate', 'post', '200'],
+      ['/api/v1/category-rules/{ruleId}/deactivate', 'post', '200'],
+      ['/api/v1/category-rules/{ruleId}', 'delete', '200'],
+    ];
+    for (const [path, method, successStatus] of operations) {
+      const operation = document.paths?.[path]?.[method];
+      expect(operation, `${method.toUpperCase()} ${path}`).toBeDefined();
       expect(operation?.security).toEqual([{ auth0: [] }]);
-      expect(operation?.responses).toHaveProperty('201');
+      expect(operation?.responses).toHaveProperty(successStatus);
       for (const [status, response] of Object.entries(
         operation?.responses ?? {},
       )) {
@@ -92,7 +114,5 @@ describe('OpenAPI contract', () => {
         expect(response.content).toHaveProperty('application/problem+json');
       }
     }
-    expect(document.paths).not.toHaveProperty('/api/v1/categories');
-    expect(document.paths).not.toHaveProperty('/api/v1/category-rules');
   });
 });

@@ -7,10 +7,31 @@ export const AUDIT_CHANGED_FIELDS = [
   'institutionName',
   'initialBalance',
   'initialBalanceAsOf',
+  'categoryId',
+  'categorizationStatus',
+  'categorizationSource',
+  'conditionField',
+  'conditionOperator',
+  'conditionValue',
+  'priority',
+  'status',
 ] as const;
 
 export type AuditChangedField = (typeof AUDIT_CHANGED_FIELDS)[number];
-export type AuditAction = 'account_updated' | 'account_deactivated';
+export type AuditAction =
+  | 'account_updated'
+  | 'account_deactivated'
+  | 'transaction_created'
+  | 'transfer_created'
+  | 'transaction_category_updated'
+  | 'category_created'
+  | 'category_updated'
+  | 'category_archived'
+  | 'category_rule_created'
+  | 'category_rule_updated'
+  | 'category_rule_activated'
+  | 'category_rule_deactivated'
+  | 'category_rule_removed';
 export type AuditStateTransition = 'active_to_archived' | 'already_archived';
 
 export type AuditMetadata =
@@ -21,7 +42,7 @@ export type AuditRecordProps = Readonly<{
   tenantId: string;
   actorUserId: string;
   action: AuditAction;
-  resourceType: 'account';
+  resourceType: 'account' | 'transaction' | 'category' | 'category_rule';
   resourceId: string;
   outcome: 'success';
   requestId: string;
@@ -48,8 +69,8 @@ export class AuditRecord {
     }
 
     if (
-      input.resourceType !== 'account' ||
       input.outcome !== 'success' ||
+      !isResourceForAction(input.action, input.resourceType) ||
       !isValidMetadata(input.action, input.metadata)
     ) {
       throw new InvalidAuditRecord('Audit action or metadata is invalid.');
@@ -66,22 +87,85 @@ export class AuditRecord {
   }
 }
 
+function isResourceForAction(
+  action: AuditAction,
+  resourceType: AuditRecordProps['resourceType'],
+): boolean {
+  if (action === 'account_updated' || action === 'account_deactivated') {
+    return resourceType === 'account';
+  }
+  if (
+    action === 'transaction_created' ||
+    action === 'transfer_created' ||
+    action === 'transaction_category_updated'
+  ) {
+    return resourceType === 'transaction';
+  }
+  if (
+    action === 'category_created' ||
+    action === 'category_updated' ||
+    action === 'category_archived'
+  ) {
+    return resourceType === 'category';
+  }
+  return resourceType === 'category_rule';
+}
+
 function isValidMetadata(
   action: AuditAction,
   metadata: AuditMetadata,
 ): boolean {
-  if (action === 'account_updated') {
+  if (
+    action === 'account_updated' ||
+    action === 'transaction_created' ||
+    action === 'transfer_created' ||
+    action === 'transaction_category_updated' ||
+    action === 'category_created' ||
+    action === 'category_updated' ||
+    action === 'category_rule_created' ||
+    action === 'category_rule_updated' ||
+    action === 'category_rule_activated' ||
+    action === 'category_rule_deactivated' ||
+    action === 'category_rule_removed'
+  ) {
     if (!hasOnlyKey(metadata, 'changedFields')) return false;
+    const allowedFields =
+      action === 'account_updated'
+        ? ['name', 'type', 'institutionName', 'initialBalance', 'initialBalanceAsOf']
+        : action === 'transaction_created' || action === 'transfer_created'
+          ? []
+        : action === 'transaction_category_updated'
+          ? ['categoryId', 'categorizationStatus', 'categorizationSource']
+          : action === 'category_created' || action === 'category_updated'
+            ? ['name']
+            : action === 'category_rule_activated' ||
+                action === 'category_rule_deactivated' ||
+                action === 'category_rule_removed'
+              ? ['status']
+              : [
+                  'categoryId',
+                  'conditionField',
+                  'conditionOperator',
+                  'conditionValue',
+                  'priority',
+                ];
     return metadata.changedFields.every((field) =>
-      AUDIT_CHANGED_FIELDS.includes(field),
+      allowedFields.includes(field),
     );
   }
 
-  if (!hasOnlyKey(metadata, 'stateTransition')) return false;
-  return (
-    metadata.stateTransition === 'active_to_archived' ||
-    metadata.stateTransition === 'already_archived'
-  );
+  if (
+    action === 'account_deactivated' ||
+    action === 'category_archived'
+  ) {
+    if (!hasOnlyKey(metadata, 'stateTransition')) return false;
+    return (
+      metadata.stateTransition === 'active_to_archived' ||
+      metadata.stateTransition === 'already_archived'
+    );
+  }
+
+  return false;
 }
 
 function hasOnlyKey<T extends string>(

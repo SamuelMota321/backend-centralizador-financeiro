@@ -46,6 +46,27 @@ export type CategoryRuleView = Readonly<{
   updatedAt: string;
 }>;
 
+export type TransactionPage = Readonly<{
+  items: readonly TransactionView[];
+  page: number;
+  pageSize: number;
+  total: number;
+}>;
+
+export type CategoryPage = Readonly<{
+  items: readonly CategoryView[];
+  page: number;
+  pageSize: number;
+  total: number;
+}>;
+
+export type CategoryRulePage = Readonly<{
+  items: readonly CategoryRuleView[];
+  page: number;
+  pageSize: number;
+  total: number;
+}>;
+
 export function toTransactionView(
   snapshot: TransactionSnapshot,
 ): TransactionView {

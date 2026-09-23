@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import type { TenantContext } from '../../../../shared/application/tenant-context.js';
+import type { AuditWriter } from '../../../audit/application/ports/audit-writer.port.js';
 import type {
   Transaction,
   TransactionSnapshot,
 } from '../../domain/transaction.js';
+import type { CategoryRuleSnapshot } from '../../domain/category-rule.js';
 import type {
   IdempotencyClaim,
   IdempotencyOperation,
@@ -31,6 +33,59 @@ import { CreateAccountingTransfer } from './create-accounting-transfer.js';
 import { CreateManualTransaction } from './create-manual-transaction.js';
 
 describe('movement use cases', () => {
+  it('uses the first active rule supplied in deterministic precedence order', async () => {
+    const accountId = randomUUID();
+    const preferredCategoryId = randomUUID();
+    const fallbackCategoryId = randomUUID();
+    const fixture = createFixture([accountId], [
+      {
+        id: randomUUID(),
+        tenantId: randomUUID(),
+        categoryId: preferredCategoryId,
+        conditionField: 'description',
+        conditionOperator: 'contains',
+        conditionValue: 'mercado',
+        priority: 20,
+        status: 'active',
+        removedAt: null,
+        createdAt: '2026-09-20T10:00:00.000Z',
+        updatedAt: '2026-09-20T10:00:00.000Z',
+      },
+      {
+        id: randomUUID(),
+        tenantId: randomUUID(),
+        categoryId: fallbackCategoryId,
+        conditionField: 'description',
+        conditionOperator: 'contains',
+        conditionValue: 'mercado',
+        priority: 10,
+        status: 'active',
+        removedAt: null,
+        createdAt: '2026-09-20T10:00:01.000Z',
+        updatedAt: '2026-09-20T10:00:01.000Z',
+      },
+    ]);
+    const useCase = new CreateManualTransaction(
+      fixture.repository,
+      fixture.unitOfWork,
+      fixture.accountState,
+    );
+
+    const result = await useCase.execute(fixture.context, 'rule-key', {
+      accountId,
+      type: 'expense',
+      amount: '10.00',
+      occurredOn: '2026-09-20',
+      description: 'Mercado semanal',
+    });
+
+    expect(result).toMatchObject({
+      categoryId: preferredCategoryId,
+      categorizationStatus: 'categorized',
+      categorizationSource: 'rule',
+    });
+  });
+
   it('creates an income and replays the same response without duplicating it', async () => {
     const accountId = randomUUID();
     const fixture = createFixture([accountId]);
@@ -228,7 +283,10 @@ describe('movement use cases', () => {
   });
 });
 
-function createFixture(accountIds: readonly string[]) {
+function createFixture(
+  accountIds: readonly string[],
+  activeRules: readonly CategoryRuleSnapshot[] = [],
+) {
   const context: TenantContext = {
     tenantId: randomUUID(),
     userId: randomUUID(),
@@ -295,6 +353,18 @@ function createFixture(accountIds: readonly string[]) {
           return snapshot ? [snapshot] : [];
         }),
       ),
+    findByIdForUpdate: (transactionId: string) =>
+      Promise.resolve(
+        createdTransactions.find(({ id }) => id === transactionId) ?? null,
+      ),
+    count: () => Promise.resolve(createdTransactions.length),
+    findPage: (offset: number, limit: number) =>
+      Promise.resolve(createdTransactions.slice(offset, offset + limit)),
+    update: (transaction: Transaction) =>
+      Promise.resolve(
+        createdTransactions.find(({ id }) => id === transaction.snapshot?.id) ??
+          transaction as never,
+      ),
   };
 
   const idempotency: TenantIdempotencyRepository = {
@@ -329,8 +399,11 @@ function createFixture(accountIds: readonly string[]) {
   const scope: TransactionPersistenceScope = {
     transactions,
     categories: {} as TenantCategoriesRepository,
-    categoryRules: {} as TenantCategoryRulesRepository,
+    categoryRules: {
+      findActiveForEvaluation: () => Promise.resolve([...activeRules]),
+    } as unknown as TenantCategoryRulesRepository,
     idempotency,
+    audit: { write: () => Promise.resolve() } satisfies AuditWriter,
   };
   const repository: TransactionsRepository = {
     withTenant: <Result>(

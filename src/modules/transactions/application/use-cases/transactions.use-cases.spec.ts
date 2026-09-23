@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import type { AuditWriter } from '../../../audit/application/ports/audit-writer.port.js';
 import type { TenantContext } from '../../../../shared/application/tenant-context.js';
 import type { CategoryRuleSnapshot } from '../../domain/category-rule.js';
 import type { Category, CategorySnapshot } from '../../domain/category.js';
@@ -82,6 +83,10 @@ function createRepository() {
     create: createTransaction,
     findById: findTransactionById,
     findByIds: findTransactionsByIds,
+    findByIdForUpdate: findTransactionById,
+    count: vi.fn(() => Promise.resolve(1)),
+    findPage: vi.fn(() => Promise.resolve([transactionSnapshot])),
+    update: vi.fn(() => Promise.resolve(transactionSnapshot)),
   };
   const createCategory = vi.fn((category: Category) => {
     capturedCategory = category;
@@ -91,6 +96,10 @@ function createRepository() {
   const categories: TenantCategoriesRepository = {
     create: createCategory,
     findById: findCategoryById,
+    findByIdForUpdate: findCategoryById,
+    count: vi.fn(() => Promise.resolve(1)),
+    findPage: vi.fn(() => Promise.resolve([categorySnapshot])),
+    update: vi.fn(() => Promise.resolve(categorySnapshot)),
   };
   const createCategoryRule = vi.fn(() => Promise.resolve(categoryRuleSnapshot));
   const findCategoryRuleById = vi.fn(() =>
@@ -99,6 +108,11 @@ function createRepository() {
   const categoryRules: TenantCategoryRulesRepository = {
     create: createCategoryRule,
     findById: findCategoryRuleById,
+    findByIdForUpdate: findCategoryRuleById,
+    count: vi.fn(() => Promise.resolve(1)),
+    findPage: vi.fn(() => Promise.resolve([categoryRuleSnapshot])),
+    findActiveForEvaluation: vi.fn(() => Promise.resolve([])),
+    update: vi.fn(() => Promise.resolve(categoryRuleSnapshot)),
   };
   const idempotency: TenantIdempotencyRepository = {
     find: vi.fn(() => Promise.resolve(null)),
@@ -112,6 +126,7 @@ function createRepository() {
     categories,
     categoryRules,
     idempotency,
+    audit: { write: vi.fn(() => Promise.resolve()) } satisfies AuditWriter,
   };
   const withTenant: TransactionsRepository['withTenant'] = async <Result>(
     _tenantContext: TenantContext,

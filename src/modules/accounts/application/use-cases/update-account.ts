@@ -102,6 +102,8 @@ function hasChanged(
         current.props.initialBalanceAsOf.value !==
         updated.props.initialBalanceAsOf.value
       );
+    default:
+      return false;
   }
 }
 

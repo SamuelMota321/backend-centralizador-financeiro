@@ -46,7 +46,14 @@ import type {
 } from '../../application/ports/transactions.repository.port.js';
 import type { TransactionsUnitOfWork } from '../../application/ports/transactions.unit-of-work.port.js';
 import { TransactionsTenantMismatch } from '../../application/transactions.errors.js';
+import type { AuditWriter } from '../../../audit/application/ports/audit-writer.port.js';
+import { PrismaAuditWriter } from '../../../audit/adapters/outbound/prisma-audit-writer.js';
 import { PrismaTenantIdempotencyRepository } from './prisma-idempotency.repository.js';
+import {
+  CategoryNotFound,
+  TransactionNotFound,
+} from '../../application/transactions.errors.js';
+import { CategoryRuleNotFound } from '../../domain/transactions.errors.js';
 
 const transactionSelect = {
   id: true,
@@ -294,6 +301,7 @@ class PrismaTransactionsPersistenceScope implements TransactionPersistenceScope 
   readonly categories: TenantCategoriesRepository;
   readonly categoryRules: TenantCategoryRulesRepository;
   readonly idempotency: PrismaTenantIdempotencyRepository;
+  readonly audit: AuditWriter;
 
   constructor(
     private readonly transaction: Prisma.TransactionClient,
@@ -315,6 +323,7 @@ class PrismaTransactionsPersistenceScope implements TransactionPersistenceScope 
       transaction,
       context,
     );
+    this.audit = new PrismaAuditWriter(transaction);
   }
 }
 
@@ -363,6 +372,19 @@ class PrismaTenantTransactionsRepository implements TenantTransactionsRepository
     return record ? toTransactionSnapshot(record) : null;
   }
 
+  async findByIdForUpdate(
+    transactionId: string,
+  ): Promise<TransactionSnapshot | null> {
+    await this.transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM public.transactions
+      WHERE id = ${transactionId}::uuid
+        AND tenant_id = ${this.context.tenantId}::uuid
+      FOR UPDATE
+    `;
+    return this.findById(transactionId);
+  }
+
   async findByIds(
     transactionIds: readonly string[],
   ): Promise<TransactionSnapshot[]> {
@@ -382,6 +404,50 @@ class PrismaTenantTransactionsRepository implements TenantTransactionsRepository
       const snapshot = recordsById.get(transactionId);
       return snapshot ? [snapshot] : [];
     });
+  }
+
+  count(): Promise<number> {
+    return this.transaction.transaction.count({
+      where: { tenantId: this.context.tenantId },
+    });
+  }
+
+  async findPage(offset: number, limit: number): Promise<TransactionSnapshot[]> {
+    const records = await this.transaction.transaction.findMany({
+      where: { tenantId: this.context.tenantId },
+      orderBy: [{ occurredOn: 'desc' }, { id: 'desc' }],
+      skip: offset,
+      take: limit,
+      select: transactionSelect,
+    });
+    return records.map(toTransactionSnapshot);
+  }
+
+  async update(transaction: Transaction): Promise<TransactionSnapshot> {
+    assertEntityTenant(transaction.props.tenantId, this.context);
+    const transactionId = transaction.snapshot?.id;
+    if (!transactionId) throw new TransactionNotFound();
+    const result = await this.transaction.transaction.updateMany({
+      where: { id: transactionId, tenantId: this.context.tenantId },
+      data: {
+        categoryId: transaction.props.categoryId,
+        categorizationStatus:
+          TO_PRISMA_CATEGORIZATION_STATUS[
+            transaction.props.categorizationStatus
+          ],
+        categorizationSource: transaction.props.categorizationSource
+          ? TO_PRISMA_CATEGORIZATION_SOURCE[
+              transaction.props.categorizationSource
+            ]
+          : null,
+      },
+    });
+    if (result.count !== 1) {
+      throw new TransactionNotFound();
+    }
+    const snapshot = await this.findById(transactionId);
+    if (!snapshot) throw new TransactionNotFound();
+    return snapshot;
   }
 }
 
@@ -414,6 +480,58 @@ class PrismaTenantCategoriesRepository implements TenantCategoriesRepository {
       select: categorySelect,
     });
     return record ? toCategorySnapshot(record) : null;
+  }
+
+  async findByIdForUpdate(
+    categoryId: string,
+  ): Promise<CategorySnapshot | null> {
+    await this.transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM public.categories
+      WHERE id = ${categoryId}::uuid
+        AND tenant_id = ${this.context.tenantId}::uuid
+      FOR UPDATE
+    `;
+    return this.findById(categoryId);
+  }
+
+  count(): Promise<number> {
+    return this.transaction.category.count({
+      where: { tenantId: this.context.tenantId },
+    });
+  }
+
+  async findPage(offset: number, limit: number): Promise<CategorySnapshot[]> {
+    const records = await this.transaction.category.findMany({
+      where: { tenantId: this.context.tenantId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: offset,
+      take: limit,
+      select: categorySelect,
+    });
+    return records.map(toCategorySnapshot);
+  }
+
+  async update(category: Category): Promise<CategorySnapshot> {
+    assertEntityTenant(category.props.tenantId, this.context);
+    const categoryId = category.snapshot?.id;
+    if (!categoryId) throw new CategoryNotFound();
+    const result = await this.transaction.category.updateMany({
+      where: { id: categoryId, tenantId: this.context.tenantId },
+      data: {
+        name: category.props.name,
+        status: TO_PRISMA_CATEGORY_STATUS[category.props.status],
+        archivedAt: category.props.archivedAt
+          ? new Date(category.props.archivedAt)
+          : null,
+      },
+    });
+    if (result.count !== 1) {
+      throw new CategoryNotFound();
+    }
+    const snapshot = await this.findById(categoryId);
+    if (!snapshot) throw new CategoryNotFound();
+    return snapshot;
   }
 }
 
@@ -448,6 +566,87 @@ class PrismaTenantCategoryRulesRepository implements TenantCategoryRulesReposito
       select: categoryRuleSelect,
     });
     return record ? toCategoryRuleSnapshot(record) : null;
+  }
+
+  async findByIdForUpdate(
+    categoryRuleId: string,
+  ): Promise<CategoryRuleSnapshot | null> {
+    await this.transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM public.category_rules
+      WHERE id = ${categoryRuleId}::uuid
+        AND tenant_id = ${this.context.tenantId}::uuid
+      FOR UPDATE
+    `;
+    return this.findById(categoryRuleId);
+  }
+
+  count(): Promise<number> {
+    return this.transaction.categoryRule.count({
+      where: { tenantId: this.context.tenantId },
+    });
+  }
+
+  async findPage(offset: number, limit: number): Promise<CategoryRuleSnapshot[]> {
+    const records = await this.transaction.categoryRule.findMany({
+      where: { tenantId: this.context.tenantId },
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'asc' },
+        { id: 'asc' },
+      ],
+      skip: offset,
+      take: limit,
+      select: categoryRuleSelect,
+    });
+    return records.map(toCategoryRuleSnapshot);
+  }
+
+  async findActiveForEvaluation(): Promise<CategoryRuleSnapshot[]> {
+    const records = await this.transaction.categoryRule.findMany({
+      where: {
+        tenantId: this.context.tenantId,
+        status: PrismaCategoryRuleStatus.ACTIVE,
+        category: {
+          status: PrismaCategoryStatus.ACTIVE,
+          tenantId: this.context.tenantId,
+        },
+      },
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'asc' },
+        { id: 'asc' },
+      ],
+      select: categoryRuleSelect,
+    });
+    return records.map(toCategoryRuleSnapshot);
+  }
+
+  async update(rule: CategoryRule): Promise<CategoryRuleSnapshot> {
+    assertEntityTenant(rule.props.tenantId, this.context);
+    const ruleId = rule.snapshot?.id;
+    if (!ruleId) throw new CategoryRuleNotFound();
+    const result = await this.transaction.categoryRule.updateMany({
+      where: { id: ruleId, tenantId: this.context.tenantId },
+      data: {
+        categoryId: rule.props.categoryId,
+        conditionField: TO_PRISMA_RULE_FIELD[rule.props.conditionField],
+        conditionOperator:
+          TO_PRISMA_RULE_OPERATOR[rule.props.conditionOperator],
+        conditionValue: rule.props.conditionValue,
+        priority: rule.props.priority,
+        status: TO_PRISMA_RULE_STATUS[rule.props.status],
+        removedAt: rule.props.removedAt
+          ? new Date(rule.props.removedAt)
+          : null,
+      },
+    });
+    if (result.count !== 1) {
+      throw new CategoryRuleNotFound();
+    }
+    const snapshot = await this.findById(ruleId);
+    if (!snapshot) throw new CategoryRuleNotFound();
+    return snapshot;
   }
 }
 

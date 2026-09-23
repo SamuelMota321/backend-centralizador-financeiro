@@ -1894,6 +1894,282 @@
       }
     },
     "/api/v1/transactions": {
+      "get": {
+        "operationId": "TransactionsController_listTransactionsEndpoint",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": { "example": 20, "type": "number" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": { "example": 1, "type": "number" }
+          },
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["items", "page", "pageSize", "total"],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "accountId",
+                          "type",
+                          "amount",
+                          "occurredOn",
+                          "description",
+                          "status",
+                          "transferId",
+                          "transferSide",
+                          "categoryId",
+                          "categorizationStatus",
+                          "categorizationSource",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "accountId": { "type": "string", "format": "uuid" },
+                          "type": {
+                            "type": "string",
+                            "enum": ["income", "expense", "transfer"]
+                          },
+                          "amount": {
+                            "type": "string",
+                            "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+                          },
+                          "occurredOn": { "type": "string", "format": "date" },
+                          "description": { "type": "string", "nullable": true },
+                          "status": {
+                            "type": "string",
+                            "enum": ["posted", "voided"]
+                          },
+                          "transferId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "transferSide": {
+                            "type": "string",
+                            "enum": ["outgoing", "incoming"],
+                            "nullable": true
+                          },
+                          "categoryId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "categorizationStatus": {
+                            "type": "string",
+                            "enum": [
+                              "unclassified",
+                              "categorized",
+                              "uncertain",
+                              "unrecognized",
+                              "not_applicable"
+                            ]
+                          },
+                          "categorizationSource": {
+                            "type": "string",
+                            "enum": ["manual", "rule"],
+                            "nullable": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "page": { "type": "integer", "minimum": 1 },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "total": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "List transactions for the authenticated tenant",
+        "tags": ["transactions"]
+      },
       "post": {
         "operationId": "TransactionsController_createTransaction",
         "parameters": [
@@ -2602,6 +2878,3156 @@
         "summary": "Register an accounting transfer between accounts",
         "tags": ["transactions"]
       }
+    },
+    "/api/v1/transactions/{transactionId}/category": {
+      "patch": {
+        "operationId": "TransactionsController_updateTransactionCategoryEndpoint",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "transactionId",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["categoryId"],
+                    "properties": {
+                      "categoryId": { "type": "string", "format": "uuid" }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["categorizationStatus"],
+                    "properties": {
+                      "categorizationStatus": {
+                        "type": "string",
+                        "enum": ["uncertain", "unrecognized"]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "accountId",
+                    "type",
+                    "amount",
+                    "occurredOn",
+                    "description",
+                    "status",
+                    "transferId",
+                    "transferSide",
+                    "categoryId",
+                    "categorizationStatus",
+                    "categorizationSource",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "accountId": { "type": "string", "format": "uuid" },
+                    "type": {
+                      "type": "string",
+                      "enum": ["income", "expense", "transfer"]
+                    },
+                    "amount": {
+                      "type": "string",
+                      "pattern": "^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d*\\.\\d{2})$"
+                    },
+                    "occurredOn": { "type": "string", "format": "date" },
+                    "description": { "type": "string", "nullable": true },
+                    "status": {
+                      "type": "string",
+                      "enum": ["posted", "voided"]
+                    },
+                    "transferId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
+                    "transferSide": {
+                      "type": "string",
+                      "enum": ["outgoing", "incoming"],
+                      "nullable": true
+                    },
+                    "categoryId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
+                    "categorizationStatus": {
+                      "type": "string",
+                      "enum": [
+                        "unclassified",
+                        "categorized",
+                        "uncertain",
+                        "unrecognized",
+                        "not_applicable"
+                      ]
+                    },
+                    "categorizationSource": {
+                      "type": "string",
+                      "enum": ["manual", "rule"],
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Assign or correct a transaction categorization",
+        "tags": ["transactions"]
+      }
+    },
+    "/api/v1/categories": {
+      "get": {
+        "operationId": "TransactionsController_listCategoriesEndpoint",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": { "example": 20, "type": "number" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": { "example": 1, "type": "number" }
+          },
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["items", "page", "pageSize", "total"],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "source",
+                          "status",
+                          "archivedAt",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "source": { "type": "string", "enum": ["user"] },
+                          "status": {
+                            "type": "string",
+                            "enum": ["active", "archived"]
+                          },
+                          "archivedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "page": { "type": "integer", "minimum": 1 },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "total": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "List categories for the authenticated tenant",
+        "tags": ["transactions"]
+      },
+      "post": {
+        "operationId": "TransactionsController_createCategoryEndpoint",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name",
+                    "source",
+                    "status",
+                    "archivedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "name": { "type": "string" },
+                    "source": { "type": "string", "enum": ["user"] },
+                    "status": {
+                      "type": "string",
+                      "enum": ["active", "archived"]
+                    },
+                    "archivedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Create a personal category",
+        "tags": ["transactions"]
+      }
+    },
+    "/api/v1/categories/{categoryId}": {
+      "patch": {
+        "operationId": "TransactionsController_updateCategoryEndpoint",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "categoryId",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name",
+                    "source",
+                    "status",
+                    "archivedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "name": { "type": "string" },
+                    "source": { "type": "string", "enum": ["user"] },
+                    "status": {
+                      "type": "string",
+                      "enum": ["active", "archived"]
+                    },
+                    "archivedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Rename a personal category",
+        "tags": ["transactions"]
+      }
+    },
+    "/api/v1/categories/{categoryId}/deactivate": {
+      "post": {
+        "operationId": "TransactionsController_deactivateCategoryEndpoint",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "categoryId",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name",
+                    "source",
+                    "status",
+                    "archivedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "name": { "type": "string" },
+                    "source": { "type": "string", "enum": ["user"] },
+                    "status": {
+                      "type": "string",
+                      "enum": ["active", "archived"]
+                    },
+                    "archivedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Archive a personal category",
+        "tags": ["transactions"]
+      }
+    },
+    "/api/v1/category-rules": {
+      "get": {
+        "operationId": "TransactionsController_listCategoryRulesEndpoint",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": { "example": 20, "type": "number" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": { "example": 1, "type": "number" }
+          },
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["items", "page", "pageSize", "total"],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "categoryId",
+                          "conditionField",
+                          "conditionOperator",
+                          "conditionValue",
+                          "priority",
+                          "status",
+                          "removedAt",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "categoryId": { "type": "string", "format": "uuid" },
+                          "conditionField": {
+                            "type": "string",
+                            "enum": ["description", "type", "accountId"]
+                          },
+                          "conditionOperator": {
+                            "type": "string",
+                            "enum": [
+                              "equals",
+                              "contains",
+                              "starts_with",
+                              "ends_with"
+                            ]
+                          },
+                          "conditionValue": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "priority": { "type": "integer", "minimum": 0 },
+                          "status": {
+                            "type": "string",
+                            "enum": ["active", "inactive", "removed"]
+                          },
+                          "removedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "page": { "type": "integer", "minimum": 1 },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "total": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "List personal categorization rules",
+        "tags": ["transactions"]
+      },
+      "post": {
+        "operationId": "TransactionsController_createCategoryRuleEndpoint",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "categoryId",
+                  "conditionField",
+                  "conditionOperator",
+                  "conditionValue",
+                  "priority"
+                ],
+                "properties": {
+                  "categoryId": { "type": "string", "format": "uuid" },
+                  "conditionField": {
+                    "type": "string",
+                    "enum": ["description", "type", "accountId"]
+                  },
+                  "conditionOperator": {
+                    "type": "string",
+                    "enum": ["equals", "contains", "starts_with", "ends_with"]
+                  },
+                  "conditionValue": { "type": "string", "minLength": 1 },
+                  "priority": { "type": "integer", "minimum": 0 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "categoryId",
+                    "conditionField",
+                    "conditionOperator",
+                    "conditionValue",
+                    "priority",
+                    "status",
+                    "removedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "categoryId": { "type": "string", "format": "uuid" },
+                    "conditionField": {
+                      "type": "string",
+                      "enum": ["description", "type", "accountId"]
+                    },
+                    "conditionOperator": {
+                      "type": "string",
+                      "enum": ["equals", "contains", "starts_with", "ends_with"]
+                    },
+                    "conditionValue": { "type": "string", "minLength": 1 },
+                    "priority": { "type": "integer", "minimum": 0 },
+                    "status": {
+                      "type": "string",
+                      "enum": ["active", "inactive", "removed"]
+                    },
+                    "removedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Create a personal categorization rule",
+        "tags": ["transactions"]
+      }
+    },
+    "/api/v1/category-rules/{ruleId}": {
+      "patch": {
+        "operationId": "TransactionsController_updateCategoryRuleEndpoint",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "ruleId",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "categoryId": { "type": "string", "format": "uuid" },
+                  "conditionField": {
+                    "type": "string",
+                    "enum": ["description", "type", "accountId"]
+                  },
+                  "conditionOperator": {
+                    "type": "string",
+                    "enum": ["equals", "contains", "starts_with", "ends_with"]
+                  },
+                  "conditionValue": { "type": "string", "minLength": 1 },
+                  "priority": { "type": "integer", "minimum": 0 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "categoryId",
+                    "conditionField",
+                    "conditionOperator",
+                    "conditionValue",
+                    "priority",
+                    "status",
+                    "removedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "categoryId": { "type": "string", "format": "uuid" },
+                    "conditionField": {
+                      "type": "string",
+                      "enum": ["description", "type", "accountId"]
+                    },
+                    "conditionOperator": {
+                      "type": "string",
+                      "enum": ["equals", "contains", "starts_with", "ends_with"]
+                    },
+                    "conditionValue": { "type": "string", "minLength": 1 },
+                    "priority": { "type": "integer", "minimum": 0 },
+                    "status": {
+                      "type": "string",
+                      "enum": ["active", "inactive", "removed"]
+                    },
+                    "removedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Edit a personal categorization rule",
+        "tags": ["transactions"]
+      },
+      "delete": {
+        "operationId": "TransactionsController_removeCategoryRuleEndpoint",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "ruleId",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "categoryId",
+                    "conditionField",
+                    "conditionOperator",
+                    "conditionValue",
+                    "priority",
+                    "status",
+                    "removedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "categoryId": { "type": "string", "format": "uuid" },
+                    "conditionField": {
+                      "type": "string",
+                      "enum": ["description", "type", "accountId"]
+                    },
+                    "conditionOperator": {
+                      "type": "string",
+                      "enum": ["equals", "contains", "starts_with", "ends_with"]
+                    },
+                    "conditionValue": { "type": "string", "minLength": 1 },
+                    "priority": { "type": "integer", "minimum": 0 },
+                    "status": {
+                      "type": "string",
+                      "enum": ["active", "inactive", "removed"]
+                    },
+                    "removedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Remove a personal categorization rule",
+        "tags": ["transactions"]
+      }
+    },
+    "/api/v1/category-rules/{ruleId}/activate": {
+      "post": {
+        "operationId": "TransactionsController_activateCategoryRuleEndpoint",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "ruleId",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "categoryId",
+                    "conditionField",
+                    "conditionOperator",
+                    "conditionValue",
+                    "priority",
+                    "status",
+                    "removedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "categoryId": { "type": "string", "format": "uuid" },
+                    "conditionField": {
+                      "type": "string",
+                      "enum": ["description", "type", "accountId"]
+                    },
+                    "conditionOperator": {
+                      "type": "string",
+                      "enum": ["equals", "contains", "starts_with", "ends_with"]
+                    },
+                    "conditionValue": { "type": "string", "minLength": 1 },
+                    "priority": { "type": "integer", "minimum": 0 },
+                    "status": {
+                      "type": "string",
+                      "enum": ["active", "inactive", "removed"]
+                    },
+                    "removedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Activate a personal categorization rule",
+        "tags": ["transactions"]
+      }
+    },
+    "/api/v1/category-rules/{ruleId}/deactivate": {
+      "post": {
+        "operationId": "TransactionsController_deactivateCategoryRuleEndpoint",
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "ruleId",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "categoryId",
+                    "conditionField",
+                    "conditionOperator",
+                    "conditionValue",
+                    "priority",
+                    "status",
+                    "removedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "categoryId": { "type": "string", "format": "uuid" },
+                    "conditionField": {
+                      "type": "string",
+                      "enum": ["description", "type", "accountId"]
+                    },
+                    "conditionOperator": {
+                      "type": "string",
+                      "enum": ["equals", "contains", "starts_with", "ends_with"]
+                    },
+                    "conditionValue": { "type": "string", "minLength": 1 },
+                    "priority": { "type": "integer", "minimum": 0 },
+                    "status": {
+                      "type": "string",
+                      "enum": ["active", "inactive", "removed"]
+                    },
+                    "removedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Deactivate a personal categorization rule",
+        "tags": ["transactions"]
+      }
     }
   },
   "info": {
@@ -2697,6 +6123,29 @@
           "occurredOn": { "type": "string", "format": "date" },
           "description": { "type": "string", "nullable": true }
         }
+      },
+      "UpdateTransactionCategory": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["categoryId"],
+            "properties": {
+              "categoryId": { "type": "string", "format": "uuid" }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["categorizationStatus"],
+            "properties": {
+              "categorizationStatus": {
+                "type": "string",
+                "enum": ["uncertain", "unrecognized"]
+              }
+            }
+          }
+        ]
       },
       "TransferView": {
         "type": "object",
@@ -2901,6 +6350,14 @@
           "name": { "type": "string", "minLength": 1, "maxLength": 100 }
         }
       },
+      "UpdateCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+        }
+      },
       "CategoryPage": {
         "type": "object",
         "required": ["items", "page", "pageSize", "total"],
@@ -2988,6 +6445,24 @@
           "conditionValue",
           "priority"
         ],
+        "properties": {
+          "categoryId": { "type": "string", "format": "uuid" },
+          "conditionField": {
+            "type": "string",
+            "enum": ["description", "type", "accountId"]
+          },
+          "conditionOperator": {
+            "type": "string",
+            "enum": ["equals", "contains", "starts_with", "ends_with"]
+          },
+          "conditionValue": { "type": "string", "minLength": 1 },
+          "priority": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "UpdateCategoryRule": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
         "properties": {
           "categoryId": { "type": "string", "format": "uuid" },
           "conditionField": {

@@ -3,6 +3,7 @@ import {
   assertTenantContext,
   type TenantContext,
 } from '../../../../shared/application/tenant-context.js';
+import { AuditRecord } from '../../../audit/application/audit-record.js';
 import { Transaction } from '../../domain/transaction.js';
 import {
   assertReplayable,
@@ -42,6 +43,7 @@ export class CreateAccountingTransfer {
     context: TenantContext,
     idempotencyKey: string,
     input: CreateAccountingTransferCommand,
+    requestId: string = randomUUID(),
   ): Promise<TransferView> {
     assertTenantContext(context);
     assertTransferInput(input, idempotencyKey);
@@ -135,6 +137,18 @@ export class CreateAccountingTransfer {
         outgoingSnapshot.id,
         incomingSnapshot.id,
       ]);
+      await scope.audit.write(
+        AuditRecord.create({
+          tenantId: context.tenantId,
+          actorUserId: context.userId,
+          action: 'transfer_created',
+          resourceType: 'transaction',
+          resourceId: outgoingSnapshot.id,
+          outcome: 'success',
+          requestId,
+          metadata: { changedFields: [] },
+        }),
+      );
       return toTransferView(outgoingSnapshot, incomingSnapshot);
     });
   }

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  categoryRuleInputSchema,
+  categoryRuleUpdateInputSchema,
   idempotencyKeySchema,
+  paginationQuerySchema,
+  transactionCategoryInputSchema,
   transactionInputSchema,
   transferInputSchema,
 } from './transactions-input.schema.js';
@@ -56,5 +60,39 @@ describe('transactions input schemas', () => {
     ).not.toThrow();
     expect(() => idempotencyKeySchema.parse('')).toThrow();
     expect(() => idempotencyKeySchema.parse(undefined)).toThrow();
+  });
+
+  it('accepts only explicit category correction outcomes', () => {
+    expect(
+      transactionCategoryInputSchema.parse({
+        categoryId: '264aa078-983d-4c39-aae4-dda44b495970',
+      }),
+    ).toEqual({ categoryId: '264aa078-983d-4c39-aae4-dda44b495970' });
+    expect(
+      transactionCategoryInputSchema.parse({
+        categorizationStatus: 'unrecognized',
+      }),
+    ).toEqual({ categorizationStatus: 'unrecognized' });
+    expect(() =>
+      transactionCategoryInputSchema.parse({ categorizationStatus: 'unclassified' }),
+    ).toThrow();
+  });
+
+  it('rejects unsupported rule operators and empty updates', () => {
+    expect(() =>
+      categoryRuleInputSchema.parse({
+        categoryId: '264aa078-983d-4c39-aae4-dda44b495970',
+        conditionField: 'description',
+        conditionOperator: 'regex',
+        conditionValue: 'mercado',
+        priority: 1,
+      }),
+    ).toThrow();
+    expect(() => categoryRuleUpdateInputSchema.parse({})).toThrow();
+  });
+
+  it('applies the approved pagination defaults and bounds', () => {
+    expect(paginationQuerySchema.parse({})).toEqual({ page: 1, pageSize: 20 });
+    expect(() => paginationQuerySchema.parse({ pageSize: 101 })).toThrow();
   });
 });

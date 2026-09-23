@@ -82,6 +82,28 @@ export const CREATE_TRANSACTION_SCHEMA: SchemaObject = {
   },
 };
 
+export const UPDATE_TRANSACTION_CATEGORY_SCHEMA: SchemaObject = {
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['categoryId'],
+      properties: { categoryId: UUID_SCHEMA },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['categorizationStatus'],
+      properties: {
+        categorizationStatus: {
+          type: 'string',
+          enum: ['uncertain', 'unrecognized'],
+        },
+      },
+    },
+  ],
+};
+
 export const TRANSFER_SCHEMA: SchemaObject = {
   type: 'object',
   required: ['entries'],
@@ -184,6 +206,8 @@ export const CREATE_CATEGORY_SCHEMA: SchemaObject = {
   },
 };
 
+export const UPDATE_CATEGORY_SCHEMA: SchemaObject = CREATE_CATEGORY_SCHEMA;
+
 export const CATEGORY_RULE_SCHEMA: SchemaObject = {
   type: 'object',
   required: [
@@ -231,6 +255,19 @@ export const CREATE_CATEGORY_RULE_SCHEMA: SchemaObject = {
   },
 };
 
+export const UPDATE_CATEGORY_RULE_SCHEMA: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  minProperties: 1,
+  properties: {
+    categoryId: UUID_SCHEMA,
+    conditionField: { type: 'string', enum: RULE_FIELDS },
+    conditionOperator: { type: 'string', enum: RULE_OPERATORS },
+    conditionValue: { type: 'string', minLength: 1 },
+    priority: { type: 'integer', minimum: 0 },
+  },
+};
+
 export const TRANSACTION_PAGE_SCHEMA: SchemaObject = {
   type: 'object',
   required: ['items', 'page', 'pageSize', 'total'],
@@ -267,13 +304,16 @@ export const CATEGORY_RULE_PAGE_SCHEMA: SchemaObject = {
 export const TRANSACTIONS_OPENAPI_SCHEMAS: Record<string, SchemaObject> = {
   TransactionView: TRANSACTION_SCHEMA,
   CreateTransaction: CREATE_TRANSACTION_SCHEMA,
+  UpdateTransactionCategory: UPDATE_TRANSACTION_CATEGORY_SCHEMA,
   TransferView: TRANSFER_SCHEMA,
   CreateTransfer: CREATE_TRANSFER_SCHEMA,
   TransactionPage: TRANSACTION_PAGE_SCHEMA,
   CategoryView: CATEGORY_SCHEMA,
   CreateCategory: CREATE_CATEGORY_SCHEMA,
+  UpdateCategory: UPDATE_CATEGORY_SCHEMA,
   CategoryPage: CATEGORY_PAGE_SCHEMA,
   CategoryRuleView: CATEGORY_RULE_SCHEMA,
   CreateCategoryRule: CREATE_CATEGORY_RULE_SCHEMA,
+  UpdateCategoryRule: UPDATE_CATEGORY_RULE_SCHEMA,
   CategoryRulePage: CATEGORY_RULE_PAGE_SCHEMA,
 };

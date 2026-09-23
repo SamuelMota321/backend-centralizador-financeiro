@@ -123,14 +123,28 @@ enum IdempotencyStatus {
 }
 
 enum AuditAction {
-  ACCOUNT_UPDATED     @map("account_updated")
-  ACCOUNT_DEACTIVATED @map("account_deactivated")
+  ACCOUNT_UPDATED              @map("account_updated")
+  ACCOUNT_DEACTIVATED          @map("account_deactivated")
+  TRANSACTION_CREATED          @map("transaction_created")
+  TRANSFER_CREATED             @map("transfer_created")
+  TRANSACTION_CATEGORY_UPDATED @map("transaction_category_updated")
+  CATEGORY_CREATED             @map("category_created")
+  CATEGORY_UPDATED             @map("category_updated")
+  CATEGORY_ARCHIVED            @map("category_archived")
+  CATEGORY_RULE_CREATED        @map("category_rule_created")
+  CATEGORY_RULE_UPDATED        @map("category_rule_updated")
+  CATEGORY_RULE_ACTIVATED      @map("category_rule_activated")
+  CATEGORY_RULE_DEACTIVATED    @map("category_rule_deactivated")
+  CATEGORY_RULE_REMOVED        @map("category_rule_removed")
 
   @@map("audit_action")
 }
 
 enum AuditResourceType {
-  ACCOUNT @map("account")
+  ACCOUNT       @map("account")
+  TRANSACTION   @map("transaction")
+  CATEGORY      @map("category")
+  CATEGORY_RULE @map("category_rule")
 
   @@map("audit_resource_type")
 }
@@ -200,7 +214,6 @@ model Account {
   updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant             Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "accounts_tenant_id_fkey")
   transactions       Transaction[]
-  auditRecords       AuditRecord[]
 
   @@unique([tenantId, externalProvider, externalAccountId], map: "accounts_external_identity_key")
   @@index([tenantId, archivedAt], map: "accounts_tenant_id_archived_at_idx")
@@ -303,7 +316,6 @@ model AuditRecord {
   createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "audit_records_tenant_id_fkey")
   actorUser    User              @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "audit_records_actor_user_id_fkey")
-  resource     Account           @relation(fields: [resourceId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "audit_records_resource_id_fkey")
 
   @@index([tenantId, createdAt, id], map: "audit_records_tenant_created_at_id_idx")
   @@index([tenantId, resourceId, createdAt], map: "audit_records_tenant_resource_created_at_idx")

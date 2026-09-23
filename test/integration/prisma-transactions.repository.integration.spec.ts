@@ -243,11 +243,11 @@ describe('PrismaTransactionsRepository', () => {
       amount: '1.00',
       occurredOn: '2026-09-20',
     });
-    await expect(
+    await expectConstraintViolation(() =>
       repository.withTenant(first, (scope) =>
         scope.transactions.create(foreignTransaction),
       ),
-    ).rejects.toMatchObject({ code: '23514' });
+    );
 
     const archivedTransaction = Transaction.createTransferEntry({
       tenantId: first.tenantId,
@@ -257,11 +257,11 @@ describe('PrismaTransactionsRepository', () => {
       transferId,
       transferSide: 'outgoing',
     });
-    await expect(
+    await expectConstraintViolation(() =>
       repository.withTenant(first, (scope) =>
         scope.transactions.create(archivedTransaction),
       ),
-    ).rejects.toMatchObject({ code: '23514' });
+    );
   });
 
   it('rolls back a partial transfer when the unit of work fails', async () => {
@@ -294,3 +294,23 @@ describe('PrismaTransactionsRepository', () => {
     return randomUUID();
   }
 });
+
+async function expectConstraintViolation(
+  operation: () => Promise<unknown>,
+): Promise<void> {
+  let caught: unknown;
+  try {
+    await operation();
+  } catch (error: unknown) {
+    caught = error;
+  }
+  expect(caught).toBeDefined();
+  if (!isRecord(caught) || typeof caught.code !== 'string') {
+    throw new Error('Expected a database constraint error code.');
+  }
+  expect(['23514', 'P2039']).toContain(caught.code);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}

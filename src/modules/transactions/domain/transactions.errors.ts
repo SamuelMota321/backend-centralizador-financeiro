@@ -33,3 +33,11 @@ export class InvalidCategoryRule extends Error {
 export class CategoryRuleRemoved extends Error {
   override readonly name = 'CategoryRuleRemoved';
 }
+
+export class CategoryRuleNotFound extends Error {
+  override readonly name = 'CategoryRuleNotFound';
+}
+
+export class CategoryRuleConflict extends Error {
+  override readonly name = 'CategoryRuleConflict';
+}
