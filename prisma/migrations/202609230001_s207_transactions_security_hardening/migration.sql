@@ -5,12 +5,12 @@ BEGIN
     FROM public.transactions AS t
     JOIN public.categories AS c ON c.id = t.category_id
     WHERE t.category_id IS NOT NULL
-      AND (c.tenant_id <> t.tenant_id OR c.status <> 'active' OR c.archived_at IS NOT NULL)
+      AND c.tenant_id <> t.tenant_id
   ) OR EXISTS (
     SELECT 1
     FROM public.category_rules AS r
     JOIN public.categories AS c ON c.id = r.category_id
-    WHERE c.tenant_id <> r.tenant_id OR c.status <> 'active' OR c.archived_at IS NOT NULL
+    WHERE c.tenant_id <> r.tenant_id
   ) OR EXISTS (
     SELECT 1
     FROM public.category_rules AS r
@@ -32,21 +32,30 @@ CREATE OR REPLACE FUNCTION public.assert_transaction_category_tenant()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  require_active_category boolean;
 BEGIN
   IF NEW.category_id IS NULL THEN
     RETURN NEW;
+  END IF;
+
+  require_active_category := TG_OP = 'INSERT';
+  IF TG_OP = 'UPDATE' THEN
+    require_active_category := NEW.category_id IS DISTINCT FROM OLD.category_id;
   END IF;
 
   PERFORM 1
   FROM public.categories
   WHERE id = NEW.category_id
     AND tenant_id = NEW.tenant_id
-    AND status = 'active'
-    AND archived_at IS NULL
+    AND (
+      NOT require_active_category
+      OR (status = 'active' AND archived_at IS NULL)
+    )
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'transaction category must belong to the tenant and be active'
+    RAISE EXCEPTION 'transaction category must belong to the tenant and be active when assigned'
       USING ERRCODE = '23514';
   END IF;
 
@@ -57,17 +66,26 @@ CREATE OR REPLACE FUNCTION public.assert_category_rule_references_tenant()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  require_active_category boolean;
 BEGIN
+  require_active_category := TG_OP = 'INSERT';
+  IF TG_OP = 'UPDATE' THEN
+    require_active_category := NEW.category_id IS DISTINCT FROM OLD.category_id;
+  END IF;
+
   PERFORM 1
   FROM public.categories
   WHERE id = NEW.category_id
     AND tenant_id = NEW.tenant_id
-    AND status = 'active'
-    AND archived_at IS NULL
+    AND (
+      NOT require_active_category
+      OR (status = 'active' AND archived_at IS NULL)
+    )
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'category rule category must belong to the tenant and be active'
+    RAISE EXCEPTION 'category rule category must belong to the tenant and be active when assigned'
       USING ERRCODE = '23514';
   END IF;
 

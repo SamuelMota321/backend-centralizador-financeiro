@@ -76,7 +76,10 @@ export class UpdateCategoryRule {
             'The category was not found for the authenticated tenant.',
           );
         }
-        if (category.status === 'archived') {
+        if (
+          category.status === 'archived' &&
+          categoryId !== rule.props.categoryId
+        ) {
           throw new CategoryArchived(
             'Archived categories cannot receive new rules.',
           );

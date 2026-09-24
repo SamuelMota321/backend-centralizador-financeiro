@@ -505,6 +505,117 @@ describe('transactions API', () => {
     });
   });
 
+  it('keeps archived categories in history without allowing new assignment', async () => {
+    const account = await createAccount(
+      'valid-first',
+      'Conta categoria arquivada',
+    );
+    const categoryResponse = await request(server)
+      .post('/api/v1/categories')
+      .set('Authorization', 'Bearer valid-first')
+      .send({ name: `Histórico ${randomUUID()}` })
+      .expect(201);
+    const categoryId = (categoryResponse.body as CategoryBody).id;
+    const ruleResponse = await request(server)
+      .post('/api/v1/category-rules')
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        categoryId,
+        conditionField: 'description',
+        conditionOperator: 'contains',
+        conditionValue: 'histórico preservado',
+        priority: 10,
+      })
+      .expect(201);
+    const ruleId = (ruleResponse.body as RuleBody).id;
+
+    const historical = await request(server)
+      .post('/api/v1/transactions')
+      .set('Authorization', 'Bearer valid-first')
+      .set('Idempotency-Key', `archived-history-${randomUUID()}`)
+      .send({
+        accountId: account.id,
+        type: 'expense',
+        amount: '12.00',
+        occurredOn: '2026-09-20',
+        description: 'Compra com histórico preservado',
+      })
+      .expect(201);
+    const historicalId = (historical.body as TransactionBody).id;
+    expect(historical.body).toMatchObject({
+      categoryId,
+      categorizationStatus: 'categorized',
+      categorizationSource: 'rule',
+    });
+
+    await request(server)
+      .post(`/api/v1/categories/${categoryId}/deactivate`)
+      .set('Authorization', 'Bearer valid-first')
+      .expect(200);
+
+    const history = await request(server)
+      .get('/api/v1/transactions')
+      .set('Authorization', 'Bearer valid-first')
+      .expect(200);
+    const historyBody = history.body as {
+      items: { id: string; categoryId: string | null }[];
+    };
+    expect(historyBody.items).toContainEqual(
+      expect.objectContaining({ id: historicalId, categoryId }),
+    );
+
+    const laterMatchingTransaction = await request(server)
+      .post('/api/v1/transactions')
+      .set('Authorization', 'Bearer valid-first')
+      .set('Idempotency-Key', `archived-rule-${randomUUID()}`)
+      .send({
+        accountId: account.id,
+        type: 'expense',
+        amount: '13.00',
+        occurredOn: '2026-09-20',
+        description: 'Outra compra com histórico preservado',
+      })
+      .expect(201);
+    expect(laterMatchingTransaction.body).toMatchObject({
+      categoryId: null,
+      categorizationStatus: 'unclassified',
+      categorizationSource: null,
+    });
+
+    const conditionUpdate = await request(server)
+      .patch(`/api/v1/category-rules/${ruleId}`)
+      .set('Authorization', 'Bearer valid-first')
+      .send({ categoryId, conditionValue: 'histórico ajustado' })
+      .expect(200);
+    expect(conditionUpdate.body).toMatchObject({ categoryId });
+
+    const reassignment = await request(server)
+      .patch(`/api/v1/transactions/${historicalId}/category`)
+      .set('Authorization', 'Bearer valid-first')
+      .send({ categoryId })
+      .expect(409);
+    expect(reassignment.body).toMatchObject({
+      code: 'CATEGORY_ARCHIVED',
+      status: 409,
+    });
+
+    const newRule = await request(server)
+      .post('/api/v1/category-rules')
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        categoryId,
+        conditionField: 'description',
+        conditionOperator: 'contains',
+        conditionValue: 'new archived assignment',
+        priority: 1,
+      })
+      .expect(409);
+    expect(newRule.body).toMatchObject({
+      code: 'CATEGORY_ARCHIVED',
+      status: 409,
+    });
+  });
+
   async function createAccount(
     token: string,
     name: string,

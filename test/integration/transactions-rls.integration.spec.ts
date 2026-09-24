@@ -260,4 +260,109 @@ describe('Transactions foundation PostgreSQL RLS', () => {
       ),
     ).rejects.toMatchObject({ code: '23514' });
   });
+
+  it('preserves archived category history and rejects new archived references', async () => {
+    await withTenant(pool, first.tenant_id, (client) =>
+      client.query(
+        `UPDATE categories
+         SET status = 'archived', archived_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [categoryId],
+      ),
+    );
+
+    const historicalRows = await withTenant(
+      pool,
+      first.tenant_id,
+      async (client) => {
+        const transaction = await client.query<{ category_id: string }>(
+          'UPDATE transactions SET category_id = $1 WHERE id = $2 RETURNING category_id',
+          [categoryId, transactionId],
+        );
+        const rule = await client.query<{
+          category_id: string;
+          condition_value: string;
+        }>(
+          `UPDATE category_rules
+           SET condition_value = 'updated after archive'
+           WHERE id = $1
+           RETURNING category_id, condition_value`,
+          [ruleId],
+        );
+        return { transaction: transaction.rows[0], rule: rule.rows[0] };
+      },
+    );
+
+    expect(historicalRows.transaction?.category_id).toBe(categoryId);
+    expect(historicalRows.rule).toMatchObject({
+      category_id: categoryId,
+      condition_value: 'updated after archive',
+    });
+
+    const newReferences = await withTenant(
+      pool,
+      first.tenant_id,
+      async (client) => {
+        const transaction = await client.query<{ id: string }>(
+          `INSERT INTO transactions (
+             tenant_id, account_id, type, amount, occurred_on,
+             categorization_status
+           ) VALUES ($1, $2, 'income', '1.00', DATE '2026-09-20', 'unclassified')
+           RETURNING id`,
+          [first.tenant_id, accountId],
+        );
+        const alternateCategory = await client.query<{ id: string }>(
+          `INSERT INTO categories (tenant_id, name)
+           VALUES ($1, 'Transactions RLS alternate category')
+           RETURNING id`,
+          [first.tenant_id],
+        );
+        const categoryRule = await client.query<{ id: string }>(
+          `INSERT INTO category_rules (
+             tenant_id, category_id, condition_field, condition_operator,
+             condition_value
+           ) VALUES ($1, $2, 'description', 'contains', 'alternate')
+           RETURNING id`,
+          [first.tenant_id, alternateCategory.rows[0]?.id],
+        );
+        const transactionRow = transaction.rows[0];
+        const ruleRow = categoryRule.rows[0];
+        if (!transactionRow || !ruleRow) {
+          throw new Error('Expected archived-reference test fixtures.');
+        }
+        return { transactionId: transactionRow.id, ruleId: ruleRow.id };
+      },
+    );
+
+    await expect(
+      withTenant(pool, first.tenant_id, (client) =>
+        client.query('UPDATE transactions SET category_id = $1 WHERE id = $2', [
+          categoryId,
+          newReferences.transactionId,
+        ]),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+
+    await expect(
+      withTenant(pool, first.tenant_id, (client) =>
+        client.query(
+          'UPDATE category_rules SET category_id = $1 WHERE id = $2',
+          [categoryId, newReferences.ruleId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+
+    await expect(
+      withTenant(pool, first.tenant_id, (client) =>
+        client.query(
+          `INSERT INTO category_rules (
+             tenant_id, category_id, condition_field, condition_operator,
+             condition_value
+           ) VALUES ($1, $2, 'description', 'contains', 'archived')`,
+          [first.tenant_id, categoryId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+  });
 });
