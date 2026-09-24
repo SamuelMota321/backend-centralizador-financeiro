@@ -162,6 +162,60 @@ describe('transactions API', () => {
       .expect(201);
     expect(repeated.body).toEqual(created.body);
 
+    const createdId = (created.body as { id: string }).id;
+    const requestId = created.headers['x-request-id'];
+    const audit = await withTenant(pool, first.tenant_id, (client) =>
+      client.query<{
+        tenant_id: string;
+        actor_user_id: string;
+        action: string;
+        resource_type: string;
+        resource_id: string;
+        outcome: string;
+        request_id: string;
+        created_at: Date;
+        metadata: { changedFields: string[] };
+      }>(
+        `SELECT tenant_id, actor_user_id, action::text, resource_type::text,
+                resource_id, outcome::text, request_id, created_at, metadata
+         FROM audit_records WHERE request_id = $1`,
+        [requestId],
+      ),
+    );
+    expect(audit.rowCount).toBe(1);
+    expect(audit.rows[0]).toMatchObject({
+      tenant_id: first.tenant_id,
+      actor_user_id: first.user_id,
+      action: 'transaction_created',
+      resource_type: 'transaction',
+      resource_id: createdId,
+      outcome: 'success',
+      request_id: requestId,
+      metadata: { changedFields: [] },
+    });
+    expect(audit.rows[0]?.created_at).toBeInstanceOf(Date);
+    expect(Object.keys(audit.rows[0]?.metadata ?? {})).toEqual([
+      'changedFields',
+    ]);
+
+    const foreignList = await request(server)
+      .get('/api/v1/transactions')
+      .set('Authorization', 'Bearer valid-second')
+      .expect(200);
+    const foreignListBody = foreignList.body as { items: { id: string }[] };
+    expect(foreignListBody.items).not.toContainEqual(
+      expect.objectContaining({ id: createdId }),
+    );
+    const foreignMutation = await request(server)
+      .patch(`/api/v1/transactions/${createdId}/category`)
+      .set('Authorization', 'Bearer valid-second')
+      .send({ categorizationStatus: 'uncertain' })
+      .expect(404);
+    expect(foreignMutation.body).toMatchObject({
+      code: 'TRANSACTION_NOT_FOUND',
+      status: 404,
+    });
+
     const conflict = await request(server)
       .post('/api/v1/transactions')
       .set('Authorization', 'Bearer valid-first')
@@ -197,6 +251,47 @@ describe('transactions API', () => {
       ),
     );
     expect(rows.rows[0]?.count).toBe('2');
+  });
+
+  it('creates only one movement for concurrent requests with the same idempotency key', async () => {
+    const account = await createAccount('valid-first', 'Conta concorrência');
+    const key = `concurrent-${randomUUID()}`;
+    const payload = {
+      accountId: account.id,
+      type: 'expense',
+      amount: '7.50',
+      occurredOn: '2026-09-20',
+      description: 'Comando concorrente',
+    };
+    const results = await Promise.all(
+      Array.from({ length: 2 }, () =>
+        request(server)
+          .post('/api/v1/transactions')
+          .set('Authorization', 'Bearer valid-first')
+          .set('Idempotency-Key', key)
+          .send(payload)
+          .expect(201),
+      ),
+    );
+    expect(results[0]?.body).toEqual(results[1]?.body);
+
+    const persisted = await withTenant(pool, first.tenant_id, async (client) =>
+      Promise.all([
+        client.query<{ count: string }>(
+          'SELECT count(*)::text AS count FROM transactions WHERE account_id = $1',
+          [account.id],
+        ),
+        client.query<{ count: string }>(
+          `SELECT count(*)::text AS count FROM audit_records
+           WHERE resource_id = $1 AND action = 'transaction_created'`,
+          [(results[0]?.body as { id: string }).id],
+        ),
+      ]),
+    );
+    expect(persisted.map((result) => result.rows[0]?.count)).toEqual([
+      '1',
+      '1',
+    ]);
   });
 
   it('creates two atomic accounting entries and never exposes a fund movement', async () => {
@@ -239,6 +334,15 @@ describe('transactions API', () => {
       .send(payload)
       .expect(201);
     expect(repeated.body).toEqual(body);
+
+    const transferAudit = await withTenant(pool, first.tenant_id, (client) =>
+      client.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM audit_records
+         WHERE request_id = $1 AND action = 'transfer_created'`,
+        [created.headers['x-request-id']],
+      ),
+    );
+    expect(transferAudit.rows[0]?.count).toBe('1');
 
     const rows = await withTenant(pool, first.tenant_id, (client) =>
       client.query<{ count: string }>(
@@ -344,7 +448,9 @@ describe('transactions API', () => {
     });
 
     const corrected = await request(server)
-      .patch(`/api/v1/transactions/${(created.body as { id: string }).id}/category`)
+      .patch(
+        `/api/v1/transactions/${(created.body as { id: string }).id}/category`,
+      )
       .set('Authorization', 'Bearer valid-first')
       .send({ categoryId: secondCategoryBody.id })
       .expect(200);
@@ -355,7 +461,9 @@ describe('transactions API', () => {
     });
 
     const uncertain = await request(server)
-      .patch(`/api/v1/transactions/${(created.body as { id: string }).id}/category`)
+      .patch(
+        `/api/v1/transactions/${(created.body as { id: string }).id}/category`,
+      )
       .set('Authorization', 'Bearer valid-first')
       .send({ categorizationStatus: 'uncertain' })
       .expect(200);

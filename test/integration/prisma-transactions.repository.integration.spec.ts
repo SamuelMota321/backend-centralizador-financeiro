@@ -7,6 +7,7 @@ import { PrismaTransactionsRepository } from '../../src/modules/transactions/ada
 import { CategoryRule } from '../../src/modules/transactions/domain/category-rule.js';
 import { Category } from '../../src/modules/transactions/domain/category.js';
 import { Transaction } from '../../src/modules/transactions/domain/transaction.js';
+import { CreateManualTransaction } from '../../src/modules/transactions/application/use-cases/create-manual-transaction.js';
 import type { TenantContext } from '../../src/shared/application/tenant-context.js';
 import { PrismaIdentityContextResolver } from '../../src/modules/identity/adapters/outbound/prisma-identity-context-resolver.js';
 import { ExternalIdentity } from '../../src/modules/identity/domain/external-identity.js';
@@ -288,6 +289,41 @@ describe('PrismaTransactionsRepository', () => {
       ),
     );
     expect(result.rows[0]?.count).toBe('0');
+  });
+
+  it('rolls back movement and idempotency when the database rejects its audit actor', async () => {
+    const idempotencyKey = `audit-actor-${randomUUID()}`;
+    const createManual = module.get(CreateManualTransaction);
+    const forgedContext: TenantContext = {
+      tenantId: first.tenantId,
+      userId: second.userId,
+    };
+
+    await expect(
+      createManual.execute(forgedContext, idempotencyKey, {
+        accountId,
+        type: 'expense',
+        amount: '3.25',
+        occurredOn: '2026-09-20',
+      }),
+    ).rejects.toBeDefined();
+
+    const persisted = await withTenant(pool, first.tenantId, async (client) =>
+      Promise.all([
+        client.query<{ count: string }>(
+          'SELECT count(*)::text AS count FROM transactions WHERE account_id = $1 AND amount = 3.25',
+          [accountId],
+        ),
+        client.query<{ count: string }>(
+          'SELECT count(*)::text AS count FROM idempotency_keys WHERE tenant_id = $1 AND key = $2',
+          [first.tenantId, idempotencyKey],
+        ),
+      ]),
+    );
+    expect(persisted.map((result) => result.rows[0]?.count)).toEqual([
+      '0',
+      '0',
+    ]);
   });
 
   function transactionSnapshotId(): string {

@@ -14,6 +14,7 @@ import type {
   TransactionPersistenceScope,
   TransactionsRepository,
 } from '../ports/transactions.repository.port.js';
+import type { TransactionsUnitOfWork } from '../ports/transactions.unit-of-work.port.js';
 import type { TransactionAccountOwnership } from '../ports/transaction-account-ownership.port.js';
 import {
   CategoryArchived,
@@ -121,21 +122,25 @@ function createRepository() {
     ),
     complete: vi.fn(() => Promise.resolve()),
   };
+  const auditWrite = vi.fn(() => Promise.resolve());
   const scope: TransactionPersistenceScope = {
     transactions,
     categories,
     categoryRules,
     idempotency,
-    audit: { write: vi.fn(() => Promise.resolve()) } satisfies AuditWriter,
+    audit: { write: auditWrite } satisfies AuditWriter,
   };
   const withTenant: TransactionsRepository['withTenant'] = async <Result>(
     _tenantContext: TenantContext,
     operation: (value: TransactionPersistenceScope) => Promise<Result>,
   ) => operation(scope);
   const repository: TransactionsRepository = { withTenant };
+  const unitOfWork: TransactionsUnitOfWork = { run: withTenant };
   return {
     repository,
+    unitOfWork,
     scope,
+    auditWrite,
     spies: {
       createTransaction,
       findTransactionById,
@@ -151,7 +156,7 @@ function createRepository() {
 
 describe('Transactions application boundaries', () => {
   it('persists only a transaction owned by the authenticated context', async () => {
-    const { repository, spies } = createRepository();
+    const { unitOfWork, auditWrite, spies } = createRepository();
     const accountOwnership: TransactionAccountOwnership = {
       isActiveOwned: vi.fn(() => Promise.resolve(true)),
     };
@@ -164,17 +169,18 @@ describe('Transactions application boundaries', () => {
     });
 
     const result = await new PersistTransaction(
-      repository,
+      unitOfWork,
       accountOwnership,
     ).execute(context, transaction);
 
     expect(result).not.toHaveProperty('tenantId');
     expect(result.id).toBe(transactionSnapshot.id);
     expect(spies.createTransaction).toHaveBeenCalledWith(transaction);
+    expect(auditWrite).toHaveBeenCalledOnce();
   });
 
   it('rejects an aggregate owned by another tenant before persistence', async () => {
-    const { repository, spies } = createRepository();
+    const { unitOfWork, spies } = createRepository();
     const accountOwnership: TransactionAccountOwnership = {
       isActiveOwned: vi.fn(() => Promise.resolve(true)),
     };
@@ -187,7 +193,7 @@ describe('Transactions application boundaries', () => {
     });
 
     await expect(
-      new PersistTransaction(repository, accountOwnership).execute(
+      new PersistTransaction(unitOfWork, accountOwnership).execute(
         context,
         transaction,
       ),

@@ -5,7 +5,10 @@ import {
 } from '../../../../shared/application/tenant-context.js';
 import { AuditRecord } from '../../../audit/application/audit-record.js';
 import { CategoryRule } from '../../domain/category-rule.js';
-import { Transaction } from '../../domain/transaction.js';
+import {
+  Transaction,
+  type TransactionSnapshot,
+} from '../../domain/transaction.js';
 import {
   assertReplayable,
   hashNormalizedPayload,
@@ -73,11 +76,15 @@ export class CreateManualTransaction {
           idempotencyKey,
         );
         if (!record) return null;
-        assertReplayable(record, payloadHash);
+        assertReplayable(record, payloadHash, context.tenantId, 1);
         const snapshots = await scope.transactions.findByIds(
           record.resourceIds,
         );
-        if (snapshots.length !== 1 || !snapshots[0]) {
+        if (
+          snapshots.length !== 1 ||
+          !snapshots[0] ||
+          !matchesManualCommand(snapshots[0], transaction)
+        ) {
           throw new IdempotencyRecordUnavailable();
         }
         return toTransactionView(snapshots[0]);
@@ -94,11 +101,15 @@ export class CreateManualTransaction {
         payloadHash,
       );
       if (!claim.claimed) {
-        assertReplayable(claim.record, payloadHash);
+        assertReplayable(claim.record, payloadHash, context.tenantId, 1);
         const snapshots = await scope.transactions.findByIds(
           claim.record.resourceIds,
         );
-        if (snapshots.length !== 1 || !snapshots[0]) {
+        if (
+          snapshots.length !== 1 ||
+          !snapshots[0] ||
+          !matchesManualCommand(snapshots[0], transaction)
+        ) {
           throw new IdempotencyRecordUnavailable();
         }
         return toTransactionView(snapshots[0]);
@@ -145,7 +156,27 @@ async function assertActiveAccount(
 }
 
 function assertMovementInput(accountId: string, idempotencyKey: string): void {
-  if (!isCanonicalUuid(accountId) || idempotencyKey.length === 0) {
+  if (
+    !isCanonicalUuid(accountId) ||
+    idempotencyKey.length === 0 ||
+    idempotencyKey.length > 255
+  ) {
     throw new InvalidTransactionRequest('Invalid movement input.');
   }
+}
+
+function matchesManualCommand(
+  snapshot: TransactionSnapshot,
+  transaction: Transaction,
+): boolean {
+  return (
+    snapshot.tenantId === transaction.props.tenantId &&
+    snapshot.accountId === transaction.props.accountId &&
+    snapshot.type === transaction.props.type &&
+    snapshot.amount === transaction.props.amount.toDecimal() &&
+    snapshot.occurredOn === transaction.props.occurredOn &&
+    snapshot.description === transaction.props.description &&
+    snapshot.transferId === null &&
+    snapshot.transferSide === null
+  );
 }

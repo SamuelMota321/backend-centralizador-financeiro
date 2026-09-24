@@ -142,7 +142,7 @@ export class TransactionsController {
   @ApiHeader({
     name: 'Idempotency-Key',
     required: true,
-    schema: { type: 'string', minLength: 1 },
+    schema: { type: 'string', minLength: 1, maxLength: 255 },
   })
   @ApiHeader({
     name: 'X-Request-Id',
@@ -180,7 +180,7 @@ export class TransactionsController {
   @ApiHeader({
     name: 'Idempotency-Key',
     required: true,
-    schema: { type: 'string', minLength: 1 },
+    schema: { type: 'string', minLength: 1, maxLength: 255 },
   })
   @ApiHeader({
     name: 'X-Request-Id',

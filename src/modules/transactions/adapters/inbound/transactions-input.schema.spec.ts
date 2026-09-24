@@ -60,6 +60,8 @@ describe('transactions input schemas', () => {
     ).not.toThrow();
     expect(() => idempotencyKeySchema.parse('')).toThrow();
     expect(() => idempotencyKeySchema.parse(undefined)).toThrow();
+    expect(() => idempotencyKeySchema.parse('k'.repeat(256))).toThrow();
+    expect(idempotencyKeySchema.parse('k'.repeat(255))).toHaveLength(255);
   });
 
   it('accepts only explicit category correction outcomes', () => {
@@ -74,7 +76,9 @@ describe('transactions input schemas', () => {
       }),
     ).toEqual({ categorizationStatus: 'unrecognized' });
     expect(() =>
-      transactionCategoryInputSchema.parse({ categorizationStatus: 'unclassified' }),
+      transactionCategoryInputSchema.parse({
+        categorizationStatus: 'unclassified',
+      }),
     ).toThrow();
   });
 

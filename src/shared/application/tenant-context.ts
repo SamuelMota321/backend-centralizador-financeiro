@@ -13,10 +13,18 @@ export class InvalidTenantContext extends Error {
   }
 }
 
-export function assertTenantContext(context: TenantContext): void {
+export function assertTenantContext(
+  context: unknown,
+): asserts context is TenantContext {
+  if (typeof context !== 'object' || context === null) {
+    throw new InvalidTenantContext();
+  }
+  const candidate = context as Record<string, unknown>;
   if (
-    !CANONICAL_UUID.test(context.tenantId) ||
-    !CANONICAL_UUID.test(context.userId)
+    typeof candidate.tenantId !== 'string' ||
+    typeof candidate.userId !== 'string' ||
+    !CANONICAL_UUID.test(candidate.tenantId) ||
+    !CANONICAL_UUID.test(candidate.userId)
   ) {
     throw new InvalidTenantContext();
   }

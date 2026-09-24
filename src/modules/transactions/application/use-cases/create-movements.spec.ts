@@ -25,6 +25,7 @@ import type { TransactionsUnitOfWork } from '../ports/transactions.unit-of-work.
 import {
   IdempotencyKeyExpired,
   IdempotencyKeyReused,
+  IdempotencyRecordUnavailable,
   TransactionAccountArchived,
   TransactionAccountNotFound,
   TransferAccountsMustDiffer,
@@ -37,34 +38,37 @@ describe('movement use cases', () => {
     const accountId = randomUUID();
     const preferredCategoryId = randomUUID();
     const fallbackCategoryId = randomUUID();
-    const fixture = createFixture([accountId], [
-      {
-        id: randomUUID(),
-        tenantId: randomUUID(),
-        categoryId: preferredCategoryId,
-        conditionField: 'description',
-        conditionOperator: 'contains',
-        conditionValue: 'mercado',
-        priority: 20,
-        status: 'active',
-        removedAt: null,
-        createdAt: '2026-09-20T10:00:00.000Z',
-        updatedAt: '2026-09-20T10:00:00.000Z',
-      },
-      {
-        id: randomUUID(),
-        tenantId: randomUUID(),
-        categoryId: fallbackCategoryId,
-        conditionField: 'description',
-        conditionOperator: 'contains',
-        conditionValue: 'mercado',
-        priority: 10,
-        status: 'active',
-        removedAt: null,
-        createdAt: '2026-09-20T10:00:01.000Z',
-        updatedAt: '2026-09-20T10:00:01.000Z',
-      },
-    ]);
+    const fixture = createFixture(
+      [accountId],
+      [
+        {
+          id: randomUUID(),
+          tenantId: randomUUID(),
+          categoryId: preferredCategoryId,
+          conditionField: 'description',
+          conditionOperator: 'contains',
+          conditionValue: 'mercado',
+          priority: 20,
+          status: 'active',
+          removedAt: null,
+          createdAt: '2026-09-20T10:00:00.000Z',
+          updatedAt: '2026-09-20T10:00:00.000Z',
+        },
+        {
+          id: randomUUID(),
+          tenantId: randomUUID(),
+          categoryId: fallbackCategoryId,
+          conditionField: 'description',
+          conditionOperator: 'contains',
+          conditionValue: 'mercado',
+          priority: 10,
+          status: 'active',
+          removedAt: null,
+          createdAt: '2026-09-20T10:00:01.000Z',
+          updatedAt: '2026-09-20T10:00:01.000Z',
+        },
+      ],
+    );
     const useCase = new CreateManualTransaction(
       fixture.repository,
       fixture.unitOfWork,
@@ -143,6 +147,30 @@ describe('movement use cases', () => {
       }),
     ).rejects.toBeInstanceOf(IdempotencyKeyReused);
     expect(fixture.createdTransactions).toHaveLength(1);
+  });
+
+  it('rejects a corrupted replay record for another tenant', async () => {
+    const fixture = createFixture([randomUUID()]);
+    const useCase = new CreateManualTransaction(
+      fixture.repository,
+      fixture.unitOfWork,
+      fixture.accountState,
+    );
+    const input = {
+      accountId: fixture.accountIds[0]!,
+      type: 'income' as const,
+      amount: '10.00',
+      occurredOn: '2026-09-20',
+    };
+    await useCase.execute(fixture.context, 'corrupt-key', input);
+    const key = 'transaction_create:corrupt-key';
+    const record = fixture.records.get(key);
+    if (!record) throw new Error('Expected idempotency fixture record.');
+    fixture.records.set(key, { ...record, tenantId: randomUUID() });
+
+    await expect(
+      useCase.execute(fixture.context, 'corrupt-key', input),
+    ).rejects.toBeInstanceOf(IdempotencyRecordUnavailable);
   });
 
   it('rejects a replay after the approved idempotency window', async () => {
@@ -281,6 +309,27 @@ describe('movement use cases', () => {
     ).rejects.toThrow('simulated persistence failure');
     expect(fixture.completeIdempotency).not.toHaveBeenCalled();
   });
+
+  it('rolls back a created movement when its business audit cannot persist', async () => {
+    const fixture = createFixture([randomUUID()]);
+    fixture.failAudit = true;
+    const useCase = new CreateManualTransaction(
+      fixture.repository,
+      fixture.unitOfWork,
+      fixture.accountState,
+    );
+
+    await expect(
+      useCase.execute(fixture.context, 'audit-failure', {
+        accountId: fixture.accountIds[0]!,
+        type: 'expense',
+        amount: '10.00',
+        occurredOn: '2026-09-20',
+      }),
+    ).rejects.toThrow('simulated audit persistence failure');
+    expect(fixture.createdTransactions).toHaveLength(0);
+    expect(fixture.records.has('transaction_create:audit-failure')).toBe(false);
+  });
 });
 
 function createFixture(
@@ -298,6 +347,7 @@ function createFixture(
   let createCount = 0;
   let failOnCreateNumber: number | null = null;
   const records = new Map<string, IdempotencyRecord>();
+  let failAudit = false;
   const completeIdempotency = vi.fn(
     (id: string, resourceIds: readonly string[]): Promise<void> => {
       const record = records.get(id);
@@ -363,7 +413,7 @@ function createFixture(
     update: (transaction: Transaction) =>
       Promise.resolve(
         createdTransactions.find(({ id }) => id === transaction.snapshot?.id) ??
-          transaction as never,
+          (transaction as never),
       ),
   };
 
@@ -403,7 +453,12 @@ function createFixture(
       findActiveForEvaluation: () => Promise.resolve([...activeRules]),
     } as unknown as TenantCategoryRulesRepository,
     idempotency,
-    audit: { write: () => Promise.resolve() } satisfies AuditWriter,
+    audit: {
+      write: () =>
+        failAudit
+          ? Promise.reject(new Error('simulated audit persistence failure'))
+          : Promise.resolve(),
+    } satisfies AuditWriter,
   };
   const repository: TransactionsRepository = {
     withTenant: <Result>(
@@ -415,7 +470,16 @@ function createFixture(
     run: <Result>(
       _context: TenantContext,
       operation: (value: TransactionPersistenceScope) => Promise<Result>,
-    ) => operation(scope),
+    ) => {
+      const transactionCount = createdTransactions.length;
+      const previousRecords = [...records.entries()];
+      return operation(scope).catch((error: unknown) => {
+        createdTransactions.splice(transactionCount);
+        records.clear();
+        for (const [key, value] of previousRecords) records.set(key, value);
+        throw error;
+      });
+    },
   };
   const accountState: TransactionAccountStateReader = {
     getOwnedState: (_context, accountId) =>
@@ -437,6 +501,9 @@ function createFixture(
     },
     set failOnCreateNumber(value: number | null) {
       failOnCreateNumber = value;
+    },
+    set failAudit(value: boolean) {
+      failAudit = value;
     },
   };
 }

@@ -16,4 +16,11 @@ describe('TenantContext', () => {
       assertTenantContext({ tenantId: '', userId: 'not-a-uuid' }),
     ).toThrow(InvalidTenantContext);
   });
+
+  it.each([null, undefined, 42, {}, { tenantId: 42, userId: 'not-a-uuid' }])(
+    'fails closed for untrusted context values: %s',
+    (context) => {
+      expect(() => assertTenantContext(context)).toThrow(InvalidTenantContext);
+    },
+  );
 });

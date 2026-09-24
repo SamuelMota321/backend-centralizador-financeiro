@@ -25,6 +25,8 @@ export function hashNormalizedPayload(
 export function assertReplayable(
   record: IdempotencyRecord,
   payloadHash: string,
+  tenantId: string,
+  expectedResourceCount: number,
 ): void {
   if (new Date(record.expiresAt).getTime() <= Date.now()) {
     throw new IdempotencyKeyExpired();
@@ -32,7 +34,13 @@ export function assertReplayable(
   if (record.payloadHash !== payloadHash) {
     throw new IdempotencyKeyReused();
   }
-  if (record.status !== 'completed' || record.resourceIds.length === 0) {
+  if (
+    record.tenantId !== tenantId ||
+    record.status !== 'completed' ||
+    record.resourceIds.length !== expectedResourceCount ||
+    new Set(record.resourceIds).size !== record.resourceIds.length ||
+    record.resourceIds.some((id) => !isCanonicalUuid(id))
+  ) {
     throw new IdempotencyRecordUnavailable();
   }
 }

@@ -4,7 +4,10 @@ import {
   type TenantContext,
 } from '../../../../shared/application/tenant-context.js';
 import { AuditRecord } from '../../../audit/application/audit-record.js';
-import { Transaction } from '../../domain/transaction.js';
+import {
+  Transaction,
+  type TransactionSnapshot,
+} from '../../domain/transaction.js';
 import {
   assertReplayable,
   hashNormalizedPayload,
@@ -85,20 +88,15 @@ export class CreateAccountingTransfer {
           idempotencyKey,
         );
         if (!record) return null;
-        assertReplayable(record, payloadHash);
+        assertReplayable(record, payloadHash, context.tenantId, 2);
         const snapshots = await scope.transactions.findByIds(
           record.resourceIds,
         );
-        if (
-          snapshots.length !== 2 ||
-          !snapshots[0] ||
-          !snapshots[1] ||
-          snapshots[0].transferSide !== 'outgoing' ||
-          snapshots[1].transferSide !== 'incoming'
-        ) {
+        const pair = getTransferPair(snapshots, outgoing, incoming);
+        if (!pair) {
           throw new IdempotencyRecordUnavailable();
         }
-        return toTransferView(snapshots[0], snapshots[1]);
+        return toTransferView(pair.outgoing, pair.incoming);
       },
     );
     if (replay) return replay;
@@ -115,20 +113,15 @@ export class CreateAccountingTransfer {
         payloadHash,
       );
       if (!claim.claimed) {
-        assertReplayable(claim.record, payloadHash);
+        assertReplayable(claim.record, payloadHash, context.tenantId, 2);
         const snapshots = await scope.transactions.findByIds(
           claim.record.resourceIds,
         );
-        if (
-          snapshots.length !== 2 ||
-          !snapshots[0] ||
-          !snapshots[1] ||
-          snapshots[0].transferSide !== 'outgoing' ||
-          snapshots[1].transferSide !== 'incoming'
-        ) {
+        const pair = getTransferPair(snapshots, outgoing, incoming);
+        if (!pair) {
           throw new IdempotencyRecordUnavailable();
         }
-        return toTransferView(snapshots[0], snapshots[1]);
+        return toTransferView(pair.outgoing, pair.incoming);
       }
 
       const outgoingSnapshot = await scope.transactions.create(outgoing);
@@ -173,11 +166,50 @@ function assertTransferInput(
   if (
     !isCanonicalUuid(input.fromAccountId) ||
     !isCanonicalUuid(input.toAccountId) ||
-    idempotencyKey.length === 0
+    idempotencyKey.length === 0 ||
+    idempotencyKey.length > 255
   ) {
     throw new InvalidTransactionRequest('Invalid movement input.');
   }
   if (input.fromAccountId.toLowerCase() === input.toAccountId.toLowerCase()) {
     throw new TransferAccountsMustDiffer();
   }
+}
+
+function getTransferPair(
+  snapshots: readonly TransactionSnapshot[],
+  outgoingCommand: Transaction,
+  incomingCommand: Transaction,
+): Readonly<{
+  outgoing: TransactionSnapshot;
+  incoming: TransactionSnapshot;
+}> | null {
+  if (snapshots.length !== 2) return null;
+  const outgoing = snapshots.find(
+    ({ transferSide }) => transferSide === 'outgoing',
+  );
+  const incoming = snapshots.find(
+    ({ transferSide }) => transferSide === 'incoming',
+  );
+  if (!outgoing || !incoming || outgoing.id === incoming.id) return null;
+  const matches = (snapshot: TransactionSnapshot, command: Transaction) =>
+    snapshot.tenantId === command.props.tenantId &&
+    snapshot.accountId === command.props.accountId &&
+    snapshot.type === 'transfer' &&
+    snapshot.amount === command.props.amount.toDecimal() &&
+    snapshot.occurredOn === command.props.occurredOn &&
+    snapshot.description === command.props.description &&
+    snapshot.transferId !== null &&
+    snapshot.transferSide === command.props.transferSide &&
+    snapshot.categoryId === null &&
+    snapshot.categorizationStatus === 'not_applicable' &&
+    snapshot.categorizationSource === null;
+  if (
+    !matches(outgoing, outgoingCommand) ||
+    !matches(incoming, incomingCommand) ||
+    outgoing.transferId !== incoming.transferId
+  ) {
+    return null;
+  }
+  return { outgoing, incoming };
 }

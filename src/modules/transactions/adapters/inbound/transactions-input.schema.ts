@@ -30,7 +30,7 @@ export const transferInputSchema = z
   })
   .strict();
 
-export const idempotencyKeySchema = z.string().min(1);
+export const idempotencyKeySchema = z.string().min(1).max(255);
 
 export const paginationQuerySchema = z
   .object({
@@ -43,9 +43,11 @@ export const transactionIdSchema = canonicalUuidSchema;
 
 export const transactionCategoryInputSchema = z.union([
   z.object({ categoryId: canonicalUuidSchema }).strict(),
-  z.object({
-    categorizationStatus: z.enum(['uncertain', 'unrecognized']),
-  }).strict(),
+  z
+    .object({
+      categorizationStatus: z.enum(['uncertain', 'unrecognized']),
+    })
+    .strict(),
 ]);
 
 export const categoryInputSchema = z

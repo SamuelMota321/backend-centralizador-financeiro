@@ -2183,7 +2183,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "schema": { "type": "string", "minLength": 1 }
+            "schema": { "type": "string", "minLength": 1, "maxLength": 255 }
           }
         ],
         "requestBody": {
@@ -2527,7 +2527,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "schema": { "type": "string", "minLength": 1 }
+            "schema": { "type": "string", "minLength": 1, "maxLength": 255 }
           }
         ],
         "requestBody": {

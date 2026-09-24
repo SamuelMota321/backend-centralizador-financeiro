@@ -147,6 +147,7 @@ FROM app_private.resolve_or_provision_identity(
 SELECT set_config('verify.tenant_id_a', :'tenant_id_a', false);
 SELECT set_config('verify.tenant_id_b', :'tenant_id_b', false);
 SELECT set_config('verify.user_id_a', :'user_id_a', false);
+SELECT set_config('verify.user_id_b', :'user_id_b', false);
 
 BEGIN;
 SELECT set_config('app.current_tenant_id', :'tenant_id_a', true);
@@ -182,6 +183,16 @@ INSERT INTO public.category_rules (
   :'tenant_id_a'::uuid, :'category_id_a'::uuid, 'description', 'contains', 'RLS'
 ) RETURNING id AS category_rule_id_a \gset
 SELECT set_config('verify.category_rule_id_a', :'category_rule_id_a', false);
+COMMIT;
+
+BEGIN;
+SELECT set_config('app.current_tenant_id', :'tenant_id_b', true);
+INSERT INTO public.accounts (
+  tenant_id, name, type, initial_balance, initial_balance_as_of
+) VALUES (
+  :'tenant_id_b'::uuid, 'RLS verification foreign resource', 'cash', '0.00', DATE '2026-09-01'
+) RETURNING id AS account_id_b \gset
+SELECT set_config('verify.account_id_b', :'account_id_b', false);
 COMMIT;
 
 BEGIN;
@@ -282,6 +293,46 @@ BEGIN
     '{"changedFields":[]}'::jsonb
   );
   RAISE EXCEPTION 'cross-tenant audit insert unexpectedly succeeded';
+EXCEPTION WHEN insufficient_privilege THEN
+  NULL;
+END $$;
+ROLLBACK;
+
+BEGIN;
+SELECT set_config('app.current_tenant_id', :'tenant_id_a', true);
+DO $$
+BEGIN
+  INSERT INTO public.audit_records (
+    tenant_id, actor_user_id, action, resource_type, resource_id, outcome,
+    request_id, metadata
+  ) VALUES (
+    current_setting('verify.tenant_id_a')::uuid,
+    current_setting('verify.user_id_b')::uuid,
+    'account_updated', 'account',
+    current_setting('verify.account_id_a')::uuid, 'success', gen_random_uuid(),
+    '{"changedFields":["name"]}'::jsonb
+  );
+  RAISE EXCEPTION 'audit insert with a foreign actor unexpectedly succeeded';
+EXCEPTION WHEN insufficient_privilege THEN
+  NULL;
+END $$;
+ROLLBACK;
+
+BEGIN;
+SELECT set_config('app.current_tenant_id', :'tenant_id_a', true);
+DO $$
+BEGIN
+  INSERT INTO public.audit_records (
+    tenant_id, actor_user_id, action, resource_type, resource_id, outcome,
+    request_id, metadata
+  ) VALUES (
+    current_setting('verify.tenant_id_a')::uuid,
+    current_setting('verify.user_id_a')::uuid,
+    'account_updated', 'account',
+    current_setting('verify.account_id_b')::uuid, 'success', gen_random_uuid(),
+    '{"changedFields":["name"]}'::jsonb
+  );
+  RAISE EXCEPTION 'audit insert with a foreign resource unexpectedly succeeded';
 EXCEPTION WHEN insufficient_privilege THEN
   NULL;
 END $$;

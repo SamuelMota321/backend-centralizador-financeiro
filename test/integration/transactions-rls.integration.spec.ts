@@ -13,6 +13,8 @@ describe('Transactions foundation PostgreSQL RLS', () => {
   let categoryId: string;
   let transactionId: string;
   let ruleId: string;
+  let secondAccountId: string;
+  let secondCategoryId: string;
 
   beforeAll(async () => {
     pool = createTestPool();
@@ -82,6 +84,36 @@ describe('Transactions foundation PostgreSQL RLS', () => {
     categoryId = result.categoryId;
     transactionId = result.transactionId;
     ruleId = result.ruleId;
+
+    const secondFixtures = await withTenant(
+      pool,
+      second.tenant_id,
+      async (client) => {
+        const account = await client.query<{ id: string }>(
+          `INSERT INTO accounts (tenant_id, name, type, initial_balance, initial_balance_as_of)
+         VALUES ($1, 'Transactions RLS foreign account', 'cash', '0', DATE '2026-09-20')
+         RETURNING id`,
+          [second.tenant_id],
+        );
+        const category = await client.query<{ id: string }>(
+          `INSERT INTO categories (tenant_id, name)
+         VALUES ($1, 'Transactions RLS foreign category')
+         RETURNING id`,
+          [second.tenant_id],
+        );
+        const insertedAccount = account.rows[0];
+        const insertedCategory = category.rows[0];
+        if (!insertedAccount || !insertedCategory) {
+          throw new Error('Expected second-tenant fixtures.');
+        }
+        return {
+          accountId: insertedAccount.id,
+          categoryId: insertedCategory.id,
+        };
+      },
+    );
+    secondAccountId = secondFixtures.accountId;
+    secondCategoryId = secondFixtures.categoryId;
   });
 
   afterAll(async () => {
@@ -116,24 +148,28 @@ describe('Transactions foundation PostgreSQL RLS', () => {
   });
 
   it('shows owned foundation rows and hides another tenant rows', async () => {
-    const own = await withTenant(pool, first.tenant_id, (client) =>
-      Promise.all([
-        client.query('SELECT id FROM categories WHERE id = $1', [categoryId]),
-        client.query('SELECT id FROM transactions WHERE id = $1', [
-          transactionId,
-        ]),
-        client.query('SELECT id FROM category_rules WHERE id = $1', [ruleId]),
+    const own = await withTenant(pool, first.tenant_id, async (client) => [
+      await client.query('SELECT id FROM categories WHERE id = $1', [
+        categoryId,
       ]),
-    );
-    const other = await withTenant(pool, second.tenant_id, (client) =>
-      Promise.all([
-        client.query('SELECT id FROM categories WHERE id = $1', [categoryId]),
-        client.query('SELECT id FROM transactions WHERE id = $1', [
-          transactionId,
-        ]),
-        client.query('SELECT id FROM category_rules WHERE id = $1', [ruleId]),
+      await client.query('SELECT id FROM transactions WHERE id = $1', [
+        transactionId,
       ]),
-    );
+      await client.query('SELECT id FROM category_rules WHERE id = $1', [
+        ruleId,
+      ]),
+    ]);
+    const other = await withTenant(pool, second.tenant_id, async (client) => [
+      await client.query('SELECT id FROM categories WHERE id = $1', [
+        categoryId,
+      ]),
+      await client.query('SELECT id FROM transactions WHERE id = $1', [
+        transactionId,
+      ]),
+      await client.query('SELECT id FROM category_rules WHERE id = $1', [
+        ruleId,
+      ]),
+    ]);
 
     expect(own.map((result) => result.rowCount)).toEqual([1, 1, 1]);
     expect(other.map((result) => result.rowCount)).toEqual([0, 0, 0]);
@@ -149,21 +185,20 @@ describe('Transactions foundation PostgreSQL RLS', () => {
       ),
     ).rejects.toMatchObject({ code: '42501' });
 
-    const results = await withTenant(pool, second.tenant_id, (client) =>
-      Promise.all([
-        client.query('UPDATE categories SET name = $1 WHERE id = $2', [
-          'Foreign category update',
-          categoryId,
-        ]),
-        client.query('UPDATE transactions SET description = $1 WHERE id = $2', [
-          'Foreign transaction update',
-          transactionId,
-        ]),
-        client.query('UPDATE category_rules SET priority = 1 WHERE id = $1', [
-          ruleId,
-        ]),
+    const results = await withTenant(pool, second.tenant_id, async (client) => [
+      await client.query('UPDATE categories SET name = $1 WHERE id = $2', [
+        'Foreign category update',
+        categoryId,
       ]),
-    );
+      await client.query(
+        'UPDATE transactions SET description = $1 WHERE id = $2',
+        ['Foreign transaction update', transactionId],
+      ),
+      await client.query(
+        'UPDATE category_rules SET priority = 1 WHERE id = $1',
+        [ruleId],
+      ),
+    ]);
     expect(results.map((result) => result.rowCount)).toEqual([0, 0, 0]);
   });
 
@@ -185,6 +220,42 @@ describe('Transactions foundation PostgreSQL RLS', () => {
              categorization_status
            ) VALUES ($1, $2, 'expense', '0', DATE '2026-09-20', 'unclassified')`,
           [first.tenant_id, accountId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+
+  it('rejects cross-tenant category and rule references in direct SQL', async () => {
+    await expect(
+      withTenant(pool, first.tenant_id, (client) =>
+        client.query(
+          `INSERT INTO transactions (
+             tenant_id, account_id, type, amount, occurred_on, category_id,
+             categorization_status, categorization_source
+           ) VALUES ($1, $2, 'income', '1.00', DATE '2026-09-20', $3, 'categorized', 'manual')`,
+          [first.tenant_id, accountId, secondCategoryId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+
+    await expect(
+      withTenant(pool, first.tenant_id, (client) =>
+        client.query(
+          `INSERT INTO category_rules (
+             tenant_id, category_id, condition_field, condition_operator, condition_value
+           ) VALUES ($1, $2, 'description', 'contains', 'foreign category')`,
+          [first.tenant_id, secondCategoryId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+
+    await expect(
+      withTenant(pool, first.tenant_id, (client) =>
+        client.query(
+          `INSERT INTO category_rules (
+             tenant_id, category_id, condition_field, condition_operator, condition_value
+           ) VALUES ($1, $2, 'account_id', 'equals', $3)`,
+          [first.tenant_id, categoryId, secondAccountId],
         ),
       ),
     ).rejects.toMatchObject({ code: '23514' });
