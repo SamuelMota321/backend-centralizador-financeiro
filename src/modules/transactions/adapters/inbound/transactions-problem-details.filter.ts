@@ -16,6 +16,7 @@ import {
   InvalidTransactionRequest,
   CategoryArchived,
   CategoryNotFound,
+  CategoryNameConflict,
   TransactionNotFound,
   TransactionAccountArchived,
   TransactionAccountNotFound,
@@ -133,6 +134,12 @@ export class TransactionsProblemDetailsFilter implements ExceptionFilter {
         detail: 'The requested category was not found.',
       };
     }
+    if (exception instanceof CategoryNameConflict) {
+      return problem409(
+        'CATEGORY_ALREADY_EXISTS',
+        'A category with this name already exists for the tenant.',
+      );
+    }
     if (exception instanceof CategoryRuleNotFound) {
       return {
         type: 'about:blank',
@@ -232,6 +239,10 @@ function internalProblem(): ProblemDetails {
 }
 
 function toValidationProblems(issue: ZodIssue): ValidationProblem[] {
+  if (issue.code === 'custom' && issue.message === 'EMPTY_PATCH') {
+    const path = issue.path.map(String).join('.') || '$';
+    return [{ path, code: 'EMPTY_PATCH', message: 'Invalid request.' }];
+  }
   const path = issue.path.map(String).join('.') || '$';
   const code =
     issue.code === 'too_small' || issue.code === 'too_big'

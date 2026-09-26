@@ -16,14 +16,18 @@ import type {
 } from '../ports/transactions.repository.port.js';
 import type { TransactionsUnitOfWork } from '../ports/transactions.unit-of-work.port.js';
 import type { TransactionAccountOwnership } from '../ports/transaction-account-ownership.port.js';
+import type { TransactionAccountStateReader } from '../ports/transaction-account-state.port.js';
 import {
   CategoryArchived,
+  TransactionAccountArchived,
+  TransactionAccountNotFound,
   TransactionsTenantMismatch,
 } from '../transactions.errors.js';
 import { CreateCategory } from './create-category.js';
 import { CreateCategoryRule } from './create-category-rule.js';
 import { GetTransaction } from './get-transaction.js';
 import { PersistTransaction } from './persist-transaction.js';
+import { UpdateCategoryRule } from './update-category-rule.js';
 
 const context: TenantContext = {
   tenantId: randomUUID(),
@@ -235,6 +239,52 @@ describe('Transactions application boundaries', () => {
       }),
     ).rejects.toBeInstanceOf(CategoryArchived);
     expect(spies.createCategoryRule).not.toHaveBeenCalled();
+  });
+
+  it('uses account ownership errors consistently for rule creation', async () => {
+    const { repository } = createRepository();
+    const accountState: TransactionAccountStateReader = {
+      getOwnedState: vi
+        .fn<TransactionAccountStateReader['getOwnedState']>()
+        .mockResolvedValueOnce('missing')
+        .mockResolvedValueOnce('archived'),
+    };
+    const input = {
+      categoryId: categorySnapshot.id,
+      conditionField: 'accountId',
+      conditionOperator: 'equals',
+      conditionValue: randomUUID(),
+      priority: 10,
+    };
+
+    await expect(
+      new CreateCategoryRule(repository, accountState).execute(context, input),
+    ).rejects.toBeInstanceOf(TransactionAccountNotFound);
+    await expect(
+      new CreateCategoryRule(repository, accountState).execute(context, input),
+    ).rejects.toBeInstanceOf(TransactionAccountArchived);
+  });
+
+  it('rejects archived accounts when an existing rule is changed to accountId', async () => {
+    const { repository, unitOfWork } = createRepository();
+    const accountState: TransactionAccountStateReader = {
+      getOwnedState: vi
+        .fn<TransactionAccountStateReader['getOwnedState']>()
+        .mockResolvedValue('archived'),
+    };
+
+    await expect(
+      new UpdateCategoryRule(repository, unitOfWork, accountState).execute(
+        context,
+        categoryRuleSnapshot.id,
+        randomUUID(),
+        {
+          conditionField: 'accountId',
+          conditionOperator: 'equals',
+          conditionValue: randomUUID(),
+        },
+      ),
+    ).rejects.toBeInstanceOf(TransactionAccountArchived);
   });
 
   it('hides a transaction that the scoped repository cannot return', async () => {

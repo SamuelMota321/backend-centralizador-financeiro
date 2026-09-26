@@ -30,6 +30,27 @@ describe('CategoryRule', () => {
     });
   });
 
+  it('enforces the PostgreSQL integer priority ceiling', () => {
+    expect(() =>
+      CategoryRule.create({
+        ...base,
+        conditionField: 'description',
+        conditionOperator: 'contains',
+        conditionValue: 'mercado',
+        priority: 2_147_483_647,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      CategoryRule.create({
+        ...base,
+        conditionField: 'description',
+        conditionOperator: 'contains',
+        conditionValue: 'mercado',
+        priority: 2_147_483_648,
+      }),
+    ).toThrow(InvalidCategoryRule);
+  });
+
   it('only permits equals for type and accountId conditions', () => {
     expect(() =>
       CategoryRule.create({
@@ -140,10 +161,9 @@ describe('CategoryRule', () => {
       status: 'active',
     });
     expect(() =>
-      updated.remove('2026-09-20T10:02:00.000Z').update(
-        { priority: 2 },
-        '2026-09-20T10:03:00.000Z',
-      ),
+      updated
+        .remove('2026-09-20T10:02:00.000Z')
+        .update({ priority: 2 }, '2026-09-20T10:03:00.000Z'),
     ).toThrow(CategoryRuleRemoved);
   });
 });

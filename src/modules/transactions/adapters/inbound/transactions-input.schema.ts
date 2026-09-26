@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CATEGORY_RULE_PRIORITY_MAX } from '../../domain/category-rule.js';
 
 export const canonicalUuidSchema = z
   .string()
@@ -65,7 +66,7 @@ export const categoryRuleInputSchema = z
       'ends_with',
     ]),
     conditionValue: z.string().min(1),
-    priority: z.number().int().min(0),
+    priority: z.number().int().min(0).max(CATEGORY_RULE_PRIORITY_MAX),
   })
   .strict();
 
@@ -77,11 +78,16 @@ export const categoryRuleUpdateInputSchema = z
       .enum(['equals', 'contains', 'starts_with', 'ends_with'])
       .optional(),
     conditionValue: z.string().min(1).optional(),
-    priority: z.number().int().min(0).optional(),
+    priority: z
+      .number()
+      .int()
+      .min(0)
+      .max(CATEGORY_RULE_PRIORITY_MAX)
+      .optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {
-    message: 'At least one rule field is required.',
+    message: 'EMPTY_PATCH',
   });
 
 export const noBodySchema = z.undefined();

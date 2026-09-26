@@ -34,6 +34,8 @@ npm run db:migrate:dev
 npm run db:migrate:deploy
 npm run db:verify-migrations
 npm run db:verify-rls
+npm run openapi:generate
+git diff --exit-code -- openapi/openapi.json
 ```
 
 `db:verify-migrations` exige conexão direta como `cfi_migrator` e confirma que o histórico `_prisma_migrations` corresponde exatamente aos diretórios versionados, sem duplicatas, rollback ou migration incompleta. Ele também verifica ownership/RLS das tabelas protegidas e que `cfi_runtime`/`cfi_test` não possuem `SUPERUSER` nem `BYPASSRLS`.
@@ -58,6 +60,22 @@ npm test
 ```
 
 Testes de integração exigem o PostgreSQL local já inicializado e migrado.
+
+Para a evidência técnica do Sprint 2, a sequência mínima em um banco local novo é:
+
+```text
+npm run prisma:validate
+npm run db:migrate:deploy
+npm run db:verify-migrations
+npm run db:verify-rls
+npm run openapi:generate
+git diff --exit-code -- openapi/openapi.json
+npm run test:unit
+npm run test:integration
+npm run test:e2e
+```
+
+O contrato de regras limita `priority` ao intervalo inclusivo de `0` a `2147483647`, rejeita contas arquivadas e usa `ACCOUNT_NOT_FOUND` para conta inexistente tanto na criação quanto na edição. `PATCH /category-rules/{ruleId}` vazio retorna `400 INVALID_REQUEST` com erro aninhado `EMPTY_PATCH`. Categoria duplicada retorna `409 CATEGORY_ALREADY_EXISTS`. `DELETE /category-rules/{ruleId}` retorna `200` com `CategoryRuleView`; `204` não faz parte do contrato.
 
 ## Erros HTTP
 

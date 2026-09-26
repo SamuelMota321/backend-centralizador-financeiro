@@ -4335,7 +4335,11 @@
                             "type": "string",
                             "minLength": 1
                           },
-                          "priority": { "type": "integer", "minimum": 0 },
+                          "priority": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 2147483647
+                          },
                           "status": {
                             "type": "string",
                             "enum": ["active", "inactive", "removed"]
@@ -4552,7 +4556,11 @@
                     "enum": ["equals", "contains", "starts_with", "ends_with"]
                   },
                   "conditionValue": { "type": "string", "minLength": 1 },
-                  "priority": { "type": "integer", "minimum": 0 }
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                  }
                 }
               }
             }
@@ -4595,7 +4603,11 @@
                       "enum": ["equals", "contains", "starts_with", "ends_with"]
                     },
                     "conditionValue": { "type": "string", "minLength": 1 },
-                    "priority": { "type": "integer", "minimum": 0 },
+                    "priority": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
                     "status": {
                       "type": "string",
                       "enum": ["active", "inactive", "removed"]
@@ -4870,7 +4882,11 @@
                     "enum": ["equals", "contains", "starts_with", "ends_with"]
                   },
                   "conditionValue": { "type": "string", "minLength": 1 },
-                  "priority": { "type": "integer", "minimum": 0 }
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                  }
                 }
               }
             }
@@ -4913,7 +4929,11 @@
                       "enum": ["equals", "contains", "starts_with", "ends_with"]
                     },
                     "conditionValue": { "type": "string", "minLength": 1 },
-                    "priority": { "type": "integer", "minimum": 0 },
+                    "priority": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
                     "status": {
                       "type": "string",
                       "enum": ["active", "inactive", "removed"]
@@ -5204,7 +5224,11 @@
                       "enum": ["equals", "contains", "starts_with", "ends_with"]
                     },
                     "conditionValue": { "type": "string", "minLength": 1 },
-                    "priority": { "type": "integer", "minimum": 0 },
+                    "priority": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
                     "status": {
                       "type": "string",
                       "enum": ["active", "inactive", "removed"]
@@ -5497,7 +5521,11 @@
                       "enum": ["equals", "contains", "starts_with", "ends_with"]
                     },
                     "conditionValue": { "type": "string", "minLength": 1 },
-                    "priority": { "type": "integer", "minimum": 0 },
+                    "priority": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
                     "status": {
                       "type": "string",
                       "enum": ["active", "inactive", "removed"]
@@ -5790,7 +5818,11 @@
                       "enum": ["equals", "contains", "starts_with", "ends_with"]
                     },
                     "conditionValue": { "type": "string", "minLength": 1 },
-                    "priority": { "type": "integer", "minimum": 0 },
+                    "priority": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
                     "status": {
                       "type": "string",
                       "enum": ["active", "inactive", "removed"]
@@ -6421,7 +6453,11 @@
             "enum": ["equals", "contains", "starts_with", "ends_with"]
           },
           "conditionValue": { "type": "string", "minLength": 1 },
-          "priority": { "type": "integer", "minimum": 0 },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
           "status": {
             "type": "string",
             "enum": ["active", "inactive", "removed"]
@@ -6456,7 +6492,7 @@
             "enum": ["equals", "contains", "starts_with", "ends_with"]
           },
           "conditionValue": { "type": "string", "minLength": 1 },
-          "priority": { "type": "integer", "minimum": 0 }
+          "priority": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
         }
       },
       "UpdateCategoryRule": {
@@ -6474,7 +6510,7 @@
             "enum": ["equals", "contains", "starts_with", "ends_with"]
           },
           "conditionValue": { "type": "string", "minLength": 1 },
-          "priority": { "type": "integer", "minimum": 0 }
+          "priority": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
         }
       },
       "CategoryRulePage": {
@@ -6509,7 +6545,11 @@
                   "enum": ["equals", "contains", "starts_with", "ends_with"]
                 },
                 "conditionValue": { "type": "string", "minLength": 1 },
-                "priority": { "type": "integer", "minimum": 0 },
+                "priority": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2147483647
+                },
                 "status": {
                   "type": "string",
                   "enum": ["active", "inactive", "removed"]

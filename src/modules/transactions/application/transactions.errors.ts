@@ -10,6 +10,10 @@ export class CategoryNotFound extends Error {
   override readonly name = 'CategoryNotFound';
 }
 
+export class CategoryNameConflict extends Error {
+  override readonly name = 'CategoryNameConflict';
+}
+
 export class CategoryArchived extends Error {
   override readonly name = 'CategoryArchived';
 }

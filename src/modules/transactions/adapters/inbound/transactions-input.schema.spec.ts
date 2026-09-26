@@ -92,7 +92,29 @@ describe('transactions input schemas', () => {
         priority: 1,
       }),
     ).toThrow();
-    expect(() => categoryRuleUpdateInputSchema.parse({})).toThrow();
+    const emptyPatch = categoryRuleUpdateInputSchema.safeParse({});
+    expect(emptyPatch.success).toBe(false);
+    if (!emptyPatch.success) {
+      expect(emptyPatch.error.issues[0]?.message).toBe('EMPTY_PATCH');
+    }
+  });
+
+  it('caps rule priorities at the PostgreSQL integer maximum', () => {
+    const base = {
+      categoryId: '264aa078-983d-4c39-aae4-dda44b495970',
+      conditionField: 'description' as const,
+      conditionOperator: 'contains' as const,
+      conditionValue: 'mercado',
+    };
+    expect(
+      categoryRuleInputSchema.parse({ ...base, priority: 2_147_483_647 }),
+    ).toMatchObject({ priority: 2_147_483_647 });
+    expect(() =>
+      categoryRuleInputSchema.parse({ ...base, priority: 2_147_483_648 }),
+    ).toThrow();
+    expect(() =>
+      categoryRuleUpdateInputSchema.parse({ priority: 2_147_483_648 }),
+    ).toThrow();
   });
 
   it('applies the approved pagination defaults and bounds', () => {

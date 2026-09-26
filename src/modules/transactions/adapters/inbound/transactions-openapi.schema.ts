@@ -1,4 +1,5 @@
 import type { SchemaObject } from '@nestjs/swagger';
+import { CATEGORY_RULE_PRIORITY_MAX } from '../../domain/category-rule.js';
 
 const TRANSACTION_TYPES = ['income', 'expense', 'transfer'];
 const TRANSACTION_STATUSES = ['posted', 'voided'];
@@ -228,7 +229,11 @@ export const CATEGORY_RULE_SCHEMA: SchemaObject = {
     conditionField: { type: 'string', enum: RULE_FIELDS },
     conditionOperator: { type: 'string', enum: RULE_OPERATORS },
     conditionValue: { type: 'string', minLength: 1 },
-    priority: { type: 'integer', minimum: 0 },
+    priority: {
+      type: 'integer',
+      minimum: 0,
+      maximum: CATEGORY_RULE_PRIORITY_MAX,
+    },
     status: { type: 'string', enum: RULE_STATUSES },
     removedAt: { ...DATE_TIME_SCHEMA, nullable: true },
     createdAt: DATE_TIME_SCHEMA,
@@ -251,7 +256,11 @@ export const CREATE_CATEGORY_RULE_SCHEMA: SchemaObject = {
     conditionField: { type: 'string', enum: RULE_FIELDS },
     conditionOperator: { type: 'string', enum: RULE_OPERATORS },
     conditionValue: { type: 'string', minLength: 1 },
-    priority: { type: 'integer', minimum: 0 },
+    priority: {
+      type: 'integer',
+      minimum: 0,
+      maximum: CATEGORY_RULE_PRIORITY_MAX,
+    },
   },
 };
 
@@ -264,7 +273,11 @@ export const UPDATE_CATEGORY_RULE_SCHEMA: SchemaObject = {
     conditionField: { type: 'string', enum: RULE_FIELDS },
     conditionOperator: { type: 'string', enum: RULE_OPERATORS },
     conditionValue: { type: 'string', minLength: 1 },
-    priority: { type: 'integer', minimum: 0 },
+    priority: {
+      type: 'integer',
+      minimum: 0,
+      maximum: CATEGORY_RULE_PRIORITY_MAX,
+    },
   },
 };
 

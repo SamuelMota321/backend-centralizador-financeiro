@@ -15,6 +15,7 @@ describe('Transactions foundation PostgreSQL RLS', () => {
   let ruleId: string;
   let secondAccountId: string;
   let secondCategoryId: string;
+  let archivedAccountId: string;
 
   beforeAll(async () => {
     pool = createTestPool();
@@ -41,6 +42,18 @@ describe('Transactions foundation PostgreSQL RLS', () => {
       );
       const insertedAccount = account.rows[0];
       if (!insertedAccount) throw new Error('Expected test account.');
+
+      const archivedAccount = await client.query<{ id: string }>(
+        `INSERT INTO accounts (
+           tenant_id, name, type, initial_balance, initial_balance_as_of,
+           archived_at
+         ) VALUES ($1, 'Transactions RLS archived account', 'cash', '0', DATE '2026-09-20', CURRENT_TIMESTAMP)
+         RETURNING id`,
+        [first.tenant_id],
+      );
+      const insertedArchivedAccount = archivedAccount.rows[0];
+      if (!insertedArchivedAccount)
+        throw new Error('Expected archived account.');
 
       const category = await client.query<{ id: string }>(
         `INSERT INTO categories (tenant_id, name)
@@ -74,6 +87,7 @@ describe('Transactions foundation PostgreSQL RLS', () => {
 
       return {
         accountId: insertedAccount.id,
+        archivedAccountId: insertedArchivedAccount.id,
         categoryId: insertedCategory.id,
         transactionId: insertedTransaction.id,
         ruleId: insertedRule.id,
@@ -81,6 +95,7 @@ describe('Transactions foundation PostgreSQL RLS', () => {
     });
 
     accountId = result.accountId;
+    archivedAccountId = result.archivedAccountId;
     categoryId = result.categoryId;
     transactionId = result.transactionId;
     ruleId = result.ruleId;
@@ -223,6 +238,28 @@ describe('Transactions foundation PostgreSQL RLS', () => {
         ),
       ),
     ).rejects.toMatchObject({ code: '23514' });
+
+    await expect(
+      withTenant(pool, first.tenant_id, (client) =>
+        client.query(
+          `INSERT INTO category_rules (
+             tenant_id, category_id, condition_field, condition_operator, condition_value
+           ) VALUES ($1, $2, 'account_id', 'equals', $3)`,
+          [first.tenant_id, categoryId, archivedAccountId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+
+  it('pins the category rule priority ceiling in PostgreSQL', async () => {
+    const result = await pool.query<{ definition: string }>(
+      `SELECT pg_get_constraintdef(oid) AS definition
+       FROM pg_constraint
+       WHERE conrelid = 'public.category_rules'::regclass
+         AND conname = 'category_rules_priority_check'`,
+    );
+
+    expect(result.rows[0]?.definition).toContain('2147483647');
   });
 
   it('rejects cross-tenant category and rule references in direct SQL', async () => {

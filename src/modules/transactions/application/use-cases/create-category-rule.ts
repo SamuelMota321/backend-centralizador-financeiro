@@ -5,7 +5,12 @@ import {
 } from '../../../../shared/application/tenant-context.js';
 import { AuditRecord } from '../../../audit/application/audit-record.js';
 import { CategoryRule } from '../../domain/category-rule.js';
-import { CategoryArchived, CategoryNotFound } from '../transactions.errors.js';
+import {
+  CategoryArchived,
+  CategoryNotFound,
+  TransactionAccountArchived,
+  TransactionAccountNotFound,
+} from '../transactions.errors.js';
 import {
   toCategoryRuleView,
   type CategoryRuleView,
@@ -48,8 +53,13 @@ export class CreateCategoryRule {
         rule.props.conditionValue,
       );
       if (accountState === 'missing') {
-        throw new CategoryNotFound(
+        throw new TransactionAccountNotFound(
           'The account was not found for the authenticated tenant.',
+        );
+      }
+      if (accountState === 'archived') {
+        throw new TransactionAccountArchived(
+          'Archived accounts cannot be used by category rules.',
         );
       }
     }

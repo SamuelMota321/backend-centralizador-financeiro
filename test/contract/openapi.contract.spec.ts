@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 type OpenApiSchema = {
   required?: string[];
+  minProperties?: number;
+  properties?: Record<string, { maximum?: number; minimum?: number }>;
 };
 
 type OpenApiResponse = {
@@ -114,5 +116,24 @@ describe('OpenAPI contract', () => {
         expect(response.content).toHaveProperty('application/problem+json');
       }
     }
+  });
+
+  it('publishes the category rule priority ceiling and fixed delete response', () => {
+    const schemas = document.components?.schemas;
+    for (const schemaName of [
+      'CategoryRuleView',
+      'CreateCategoryRule',
+      'UpdateCategoryRule',
+    ]) {
+      expect(
+        schemas?.[schemaName]?.properties?.priority?.maximum,
+        `${schemaName}.priority.maximum`,
+      ).toBe(2_147_483_647);
+    }
+
+    const deleteOperation =
+      document.paths?.['/api/v1/category-rules/{ruleId}']?.delete;
+    expect(deleteOperation?.responses).toHaveProperty('200');
+    expect(deleteOperation?.responses).not.toHaveProperty('204');
   });
 });

@@ -10,6 +10,8 @@ export type CategoryRuleOperator =
   'equals' | 'contains' | 'starts_with' | 'ends_with';
 export type CategoryRuleStatus = 'active' | 'inactive' | 'removed';
 
+export const CATEGORY_RULE_PRIORITY_MAX = 2_147_483_647;
+
 export type CategoryRuleProps = Readonly<{
   tenantId: string;
   categoryId: string;
@@ -138,7 +140,8 @@ export class CategoryRule {
     }
 
     const nextField = input.conditionField ?? this.props.conditionField;
-    const nextOperator = input.conditionOperator ?? this.props.conditionOperator;
+    const nextOperator =
+      input.conditionOperator ?? this.props.conditionOperator;
     const nextValue = input.conditionValue ?? this.props.conditionValue;
     const nextPriority = input.priority ?? this.props.priority;
     const timestamp = parseDateTime(updatedAt);
@@ -153,9 +156,7 @@ export class CategoryRule {
         status: this.props.status,
         removedAt: this.props.removedAt,
       },
-      this.snapshot
-        ? { ...this.snapshot, updatedAt: timestamp }
-        : null,
+      this.snapshot ? { ...this.snapshot, updatedAt: timestamp } : null,
     );
     updated.assertConditionInvariant();
     return updated;
@@ -276,9 +277,13 @@ function normalizeForComparison(value: string, field: string): string {
 }
 
 function validatePriority(value: number): number {
-  if (!Number.isInteger(value) || value < 0) {
+  if (
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > CATEGORY_RULE_PRIORITY_MAX
+  ) {
     throw new InvalidCategoryRule(
-      'Rule priority must be a non-negative integer.',
+      `Rule priority must be an integer between 0 and ${CATEGORY_RULE_PRIORITY_MAX}.`,
     );
   }
   return value;

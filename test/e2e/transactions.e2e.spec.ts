@@ -505,6 +505,144 @@ describe('transactions API', () => {
     });
   });
 
+  it('enforces category and account-rule contract conflicts', async () => {
+    const categoryName = `Categoria duplicada ${randomUUID()}`;
+    await request(server)
+      .post('/api/v1/categories')
+      .set('Authorization', 'Bearer valid-first')
+      .send({ name: categoryName })
+      .expect(201);
+    const duplicate = await request(server)
+      .post('/api/v1/categories')
+      .set('Authorization', 'Bearer valid-first')
+      .send({ name: categoryName })
+      .expect(409);
+    expect(duplicate.body).toMatchObject({
+      code: 'CATEGORY_ALREADY_EXISTS',
+      status: 409,
+    });
+
+    const category = await request(server)
+      .post('/api/v1/categories')
+      .set('Authorization', 'Bearer valid-first')
+      .send({ name: `Regras ${randomUUID()}` })
+      .expect(201);
+    const categoryId = (category.body as CategoryBody).id;
+    const missingAccountId = '264aa078-983d-4c39-aae4-dda44b495970';
+
+    const missingOnCreate = await request(server)
+      .post('/api/v1/category-rules')
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        categoryId,
+        conditionField: 'accountId',
+        conditionOperator: 'equals',
+        conditionValue: missingAccountId,
+        priority: 10,
+      })
+      .expect(404);
+    expect(missingOnCreate.body).toMatchObject({
+      code: 'ACCOUNT_NOT_FOUND',
+      status: 404,
+    });
+
+    const rule = await request(server)
+      .post('/api/v1/category-rules')
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        categoryId,
+        conditionField: 'description',
+        conditionOperator: 'contains',
+        conditionValue: 'conta existente',
+        priority: 10,
+      })
+      .expect(201);
+    const ruleId = (rule.body as RuleBody).id;
+
+    const missingOnUpdate = await request(server)
+      .patch(`/api/v1/category-rules/${ruleId}`)
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        conditionField: 'accountId',
+        conditionOperator: 'equals',
+        conditionValue: missingAccountId,
+      })
+      .expect(404);
+    expect(missingOnUpdate.body).toMatchObject({
+      code: 'ACCOUNT_NOT_FOUND',
+      status: 404,
+    });
+
+    const emptyPatch = await request(server)
+      .patch(`/api/v1/category-rules/${ruleId}`)
+      .set('Authorization', 'Bearer valid-first')
+      .send({})
+      .expect(400);
+    expect(emptyPatch.body).toMatchObject({
+      code: 'INVALID_REQUEST',
+      status: 400,
+      errors: [expect.objectContaining({ code: 'EMPTY_PATCH', path: '$' })],
+    });
+
+    const tooLargePriority = await request(server)
+      .post('/api/v1/category-rules')
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        categoryId,
+        conditionField: 'description',
+        conditionOperator: 'contains',
+        conditionValue: 'prioridade inválida',
+        priority: 2_147_483_648,
+      })
+      .expect(400);
+    expect(tooLargePriority.body).toMatchObject({
+      code: 'INVALID_REQUEST',
+      status: 400,
+      errors: [
+        expect.objectContaining({ path: 'priority', code: 'OUT_OF_RANGE' }),
+      ],
+    });
+
+    const archivedAccount = await createAccount(
+      'valid-first',
+      'Conta arquivada para regra',
+    );
+    await request(server)
+      .post(`/api/v1/accounts/${archivedAccount.id}/deactivate`)
+      .set('Authorization', 'Bearer valid-first')
+      .expect(200);
+
+    const archivedOnCreate = await request(server)
+      .post('/api/v1/category-rules')
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        categoryId,
+        conditionField: 'accountId',
+        conditionOperator: 'equals',
+        conditionValue: archivedAccount.id,
+        priority: 10,
+      })
+      .expect(409);
+    expect(archivedOnCreate.body).toMatchObject({
+      code: 'ACCOUNT_ARCHIVED',
+      status: 409,
+    });
+
+    const archivedOnUpdate = await request(server)
+      .patch(`/api/v1/category-rules/${ruleId}`)
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        conditionField: 'accountId',
+        conditionOperator: 'equals',
+        conditionValue: archivedAccount.id,
+      })
+      .expect(409);
+    expect(archivedOnUpdate.body).toMatchObject({
+      code: 'ACCOUNT_ARCHIVED',
+      status: 409,
+    });
+  });
+
   it('keeps archived categories in history without allowing new assignment', async () => {
     const account = await createAccount(
       'valid-first',

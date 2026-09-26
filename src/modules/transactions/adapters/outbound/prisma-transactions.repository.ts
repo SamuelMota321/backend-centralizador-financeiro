@@ -51,6 +51,7 @@ import { PrismaAuditWriter } from '../../../audit/adapters/outbound/prisma-audit
 import { PrismaTenantIdempotencyRepository } from './prisma-idempotency.repository.js';
 import {
   CategoryNotFound,
+  CategoryNameConflict,
   TransactionNotFound,
 } from '../../application/transactions.errors.js';
 import { CategoryRuleNotFound } from '../../domain/transactions.errors.js';
@@ -412,7 +413,10 @@ class PrismaTenantTransactionsRepository implements TenantTransactionsRepository
     });
   }
 
-  async findPage(offset: number, limit: number): Promise<TransactionSnapshot[]> {
+  async findPage(
+    offset: number,
+    limit: number,
+  ): Promise<TransactionSnapshot[]> {
     const records = await this.transaction.transaction.findMany({
       where: { tenantId: this.context.tenantId },
       orderBy: [{ occurredOn: 'desc' }, { id: 'desc' }],
@@ -459,18 +463,26 @@ class PrismaTenantCategoriesRepository implements TenantCategoriesRepository {
 
   async create(category: Category): Promise<CategorySnapshot> {
     assertEntityTenant(category.props.tenantId, this.context);
-    const record = await this.transaction.category.create({
-      data: {
-        tenantId: this.context.tenantId,
-        name: category.props.name,
-        source: TO_PRISMA_CATEGORY_SOURCE[category.props.source],
-        status: TO_PRISMA_CATEGORY_STATUS[category.props.status],
-        archivedAt: category.props.archivedAt
-          ? new Date(category.props.archivedAt)
-          : null,
-      },
-      select: categorySelect,
-    });
+    let record: CategoryRecord;
+    try {
+      record = await this.transaction.category.create({
+        data: {
+          tenantId: this.context.tenantId,
+          name: category.props.name,
+          source: TO_PRISMA_CATEGORY_SOURCE[category.props.source],
+          status: TO_PRISMA_CATEGORY_STATUS[category.props.status],
+          archivedAt: category.props.archivedAt
+            ? new Date(category.props.archivedAt)
+            : null,
+        },
+        select: categorySelect,
+      });
+    } catch (error: unknown) {
+      if (isPrismaUniqueViolation(error)) {
+        throw new CategoryNameConflict();
+      }
+      throw error;
+    }
     return toCategorySnapshot(record);
   }
 
@@ -535,6 +547,17 @@ class PrismaTenantCategoriesRepository implements TenantCategoriesRepository {
   }
 }
 
+function isPrismaUniqueViolation(error: unknown): boolean {
+  return (
+    (error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002') ||
+    (typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'P2002')
+  );
+}
+
 class PrismaTenantCategoryRulesRepository implements TenantCategoryRulesRepository {
   constructor(
     private readonly transaction: Prisma.TransactionClient,
@@ -587,14 +610,13 @@ class PrismaTenantCategoryRulesRepository implements TenantCategoryRulesReposito
     });
   }
 
-  async findPage(offset: number, limit: number): Promise<CategoryRuleSnapshot[]> {
+  async findPage(
+    offset: number,
+    limit: number,
+  ): Promise<CategoryRuleSnapshot[]> {
     const records = await this.transaction.categoryRule.findMany({
       where: { tenantId: this.context.tenantId },
-      orderBy: [
-        { priority: 'desc' },
-        { createdAt: 'asc' },
-        { id: 'asc' },
-      ],
+      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
       skip: offset,
       take: limit,
       select: categoryRuleSelect,
@@ -612,11 +634,7 @@ class PrismaTenantCategoryRulesRepository implements TenantCategoryRulesReposito
           tenantId: this.context.tenantId,
         },
       },
-      orderBy: [
-        { priority: 'desc' },
-        { createdAt: 'asc' },
-        { id: 'asc' },
-      ],
+      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
       select: categoryRuleSelect,
     });
     return records.map(toCategoryRuleSnapshot);
@@ -636,9 +654,7 @@ class PrismaTenantCategoryRulesRepository implements TenantCategoryRulesReposito
         conditionValue: rule.props.conditionValue,
         priority: rule.props.priority,
         status: TO_PRISMA_RULE_STATUS[rule.props.status],
-        removedAt: rule.props.removedAt
-          ? new Date(rule.props.removedAt)
-          : null,
+        removedAt: rule.props.removedAt ? new Date(rule.props.removedAt) : null,
       },
     });
     if (result.count !== 1) {

@@ -7,11 +7,15 @@ import {
   AuditRecord,
   type AuditChangedField,
 } from '../../../audit/application/audit-record.js';
-import { CategoryRule, type UpdateCategoryRuleInput } from '../../domain/category-rule.js';
+import {
+  CategoryRule,
+  type UpdateCategoryRuleInput,
+} from '../../domain/category-rule.js';
 import { CategoryRuleNotFound } from '../../domain/transactions.errors.js';
 import {
   CategoryArchived,
   CategoryNotFound,
+  TransactionAccountArchived,
   TransactionAccountNotFound,
 } from '../transactions.errors.js';
 import type { TransactionAccountStateReader } from '../ports/transaction-account-state.port.js';
@@ -58,61 +62,66 @@ export class UpdateCategoryRule {
         nextValue.toLowerCase(),
       );
       if (state === 'missing') throw new TransactionAccountNotFound();
-    }
-
-    return this.unitOfWork.run(context, async ({ categoryRules, categories, audit }) => {
-      const locked = await categoryRules.findByIdForUpdate(ruleId);
-      if (!locked || locked.tenantId !== context.tenantId) {
-        throw new CategoryRuleNotFound(
-          'The category rule was not found for the authenticated tenant.',
+      if (state === 'archived') {
+        throw new TransactionAccountArchived(
+          'Archived accounts cannot be used by category rules.',
         );
       }
-      const rule = CategoryRule.reconstitute(locked);
-      const categoryId = input.categoryId ?? rule.props.categoryId;
-      if (input.categoryId) {
-        const category = await categories.findById(categoryId);
-        if (!category || category.tenantId !== context.tenantId) {
-          throw new CategoryNotFound(
-            'The category was not found for the authenticated tenant.',
-          );
-        }
-        if (
-          category.status === 'archived' &&
-          categoryId !== rule.props.categoryId
-        ) {
-          throw new CategoryArchived(
-            'Archived categories cannot receive new rules.',
-          );
-        }
-      }
+    }
 
-      const updated = rule.update(input, new Date().toISOString());
-      const snapshot = await categoryRules.update(updated);
-      const changedFields = ruleChangedFields(input);
-      await audit.write(
-        AuditRecord.create({
-          tenantId: context.tenantId,
-          actorUserId: context.userId,
-          action: 'category_rule_updated',
-          resourceType: 'category_rule',
-          resourceId: snapshot.id,
-          outcome: 'success',
-          requestId,
-          metadata: { changedFields },
-        }),
-      );
-      return toCategoryRuleView(snapshot);
-    });
+    return this.unitOfWork.run(
+      context,
+      async ({ categoryRules, categories, audit }) => {
+        const locked = await categoryRules.findByIdForUpdate(ruleId);
+        if (!locked || locked.tenantId !== context.tenantId) {
+          throw new CategoryRuleNotFound(
+            'The category rule was not found for the authenticated tenant.',
+          );
+        }
+        const rule = CategoryRule.reconstitute(locked);
+        const categoryId = input.categoryId ?? rule.props.categoryId;
+        if (input.categoryId) {
+          const category = await categories.findById(categoryId);
+          if (!category || category.tenantId !== context.tenantId) {
+            throw new CategoryNotFound(
+              'The category was not found for the authenticated tenant.',
+            );
+          }
+          if (
+            category.status === 'archived' &&
+            categoryId !== rule.props.categoryId
+          ) {
+            throw new CategoryArchived(
+              'Archived categories cannot receive new rules.',
+            );
+          }
+        }
+
+        const updated = rule.update(input, new Date().toISOString());
+        const snapshot = await categoryRules.update(updated);
+        const changedFields = ruleChangedFields(input);
+        await audit.write(
+          AuditRecord.create({
+            tenantId: context.tenantId,
+            actorUserId: context.userId,
+            action: 'category_rule_updated',
+            resourceType: 'category_rule',
+            resourceId: snapshot.id,
+            outcome: 'success',
+            requestId,
+            metadata: { changedFields },
+          }),
+        );
+        return toCategoryRuleView(snapshot);
+      },
+    );
   }
 }
 
 function ruleChangedFields(
   input: UpdateCategoryRuleInput,
 ): AuditChangedField[] {
-  const fields: Array<[
-    keyof UpdateCategoryRuleInput,
-    AuditChangedField,
-  ]> = [
+  const fields: Array<[keyof UpdateCategoryRuleInput, AuditChangedField]> = [
     ['categoryId', 'categoryId'],
     ['conditionField', 'conditionField'],
     ['conditionOperator', 'conditionOperator'],
