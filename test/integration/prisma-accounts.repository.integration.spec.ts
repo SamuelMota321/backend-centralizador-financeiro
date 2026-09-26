@@ -4,7 +4,11 @@ import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module.js';
 import { PrismaAccountsRepository } from '../../src/modules/accounts/adapters/outbound/prisma-accounts.repository.js';
+import { PrismaTransactionsRepository } from '../../src/modules/transactions/adapters/outbound/prisma-transactions.repository.js';
+import { CategoryRule } from '../../src/modules/transactions/domain/category-rule.js';
+import { Category } from '../../src/modules/transactions/domain/category.js';
 import { Account } from '../../src/modules/accounts/domain/account.js';
+import { AccountHasActiveCategoryRules } from '../../src/modules/accounts/application/accounts.errors.js';
 import { PrismaIdentityContextResolver } from '../../src/modules/identity/adapters/outbound/prisma-identity-context-resolver.js';
 import { ExternalIdentity } from '../../src/modules/identity/domain/external-identity.js';
 import type { TenantContext } from '../../src/shared/application/tenant-context.js';
@@ -14,6 +18,7 @@ describe('PrismaAccountsRepository', () => {
   let module: TestingModule;
   let pool: Pool;
   let repository: PrismaAccountsRepository;
+  let transactionsRepository: PrismaTransactionsRepository;
   let first: TenantContext;
   let second: TenantContext;
 
@@ -22,6 +27,7 @@ describe('PrismaAccountsRepository', () => {
     await module.init();
     pool = createTestPool();
     repository = module.get(PrismaAccountsRepository);
+    transactionsRepository = module.get(PrismaTransactionsRepository);
     const identities = module.get(PrismaIdentityContextResolver);
     first = await identities.resolveOrProvision(
       ExternalIdentity.auth0(
@@ -41,6 +47,12 @@ describe('PrismaAccountsRepository', () => {
     for (const context of [first, second]) {
       if (!context) continue;
       await withTenant(pool, context.tenantId, async (client) => {
+        await client.query('DELETE FROM category_rules WHERE tenant_id = $1', [
+          context.tenantId,
+        ]);
+        await client.query('DELETE FROM categories WHERE tenant_id = $1', [
+          context.tenantId,
+        ]);
         await client.query('DELETE FROM accounts WHERE tenant_id = $1', [
           context.tenantId,
         ]);
@@ -126,6 +138,50 @@ describe('PrismaAccountsRepository', () => {
       accounts.findActive(0, 100),
     );
     expect(active.map(({ id }) => id)).not.toContain(created.id);
+  });
+
+  it('rejects archival while an active account rule references the account', async () => {
+    const account = Account.createManual({
+      tenantId: first.tenantId,
+      name: `Conta vinculada ${randomUUID()}`,
+      type: 'cash',
+      initialBalance: '0.00',
+      initialBalanceAsOf: '2026-09-01',
+    });
+    const created = await repository.withTenant(first, (accounts) =>
+      accounts.createManual(account),
+    );
+    const category = await transactionsRepository.withTenant(first, (scope) =>
+      scope.categories.create(
+        Category.create({
+          tenantId: first.tenantId,
+          name: `Categoria vinculada ${randomUUID()}`,
+        }),
+      ),
+    );
+    await transactionsRepository.withTenant(first, (scope) =>
+      scope.categoryRules.create(
+        CategoryRule.create({
+          tenantId: first.tenantId,
+          categoryId: category.id,
+          conditionField: 'accountId',
+          conditionOperator: 'equals',
+          conditionValue: created.id,
+          priority: 0,
+        }),
+      ),
+    );
+
+    await expect(
+      repository.withTenant(first, (accounts) =>
+        accounts.deactivate(created.id),
+      ),
+    ).rejects.toBeInstanceOf(AccountHasActiveCategoryRules);
+
+    const snapshot = await repository.withTenant(first, (accounts) =>
+      accounts.findByIdForUpdate(created.id),
+    );
+    expect(snapshot?.archivedAt).toBeNull();
   });
 
   it('finds only an active connected account with the exact normalized key', async () => {

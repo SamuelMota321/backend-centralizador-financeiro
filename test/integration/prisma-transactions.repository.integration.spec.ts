@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Test, type TestingModule } from '@nestjs/testing';
-import type { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module.js';
 import { PrismaTransactionsRepository } from '../../src/modules/transactions/adapters/outbound/prisma-transactions.repository.js';
@@ -16,6 +16,7 @@ import { createTestPool, withTenant } from '../helpers/database.js';
 describe('PrismaTransactionsRepository', () => {
   let module: TestingModule;
   let pool: Pool;
+  let runtimePool: Pool;
   let repository: PrismaTransactionsRepository;
   let first: TenantContext;
   let second: TenantContext;
@@ -27,6 +28,11 @@ describe('PrismaTransactionsRepository', () => {
     module = await Test.createTestingModule({ imports: [AppModule] }).compile();
     await module.init();
     pool = createTestPool();
+    const runtimeDatabaseUrl = process.env.DATABASE_URL;
+    if (!runtimeDatabaseUrl) {
+      throw new Error('DATABASE_URL is required for runtime-role checks.');
+    }
+    runtimePool = new Pool({ connectionString: runtimeDatabaseUrl, max: 2 });
     repository = module.get(PrismaTransactionsRepository);
     const identities = module.get(PrismaIdentityContextResolver);
     first = await identities.resolveOrProvision(
@@ -117,6 +123,7 @@ describe('PrismaTransactionsRepository', () => {
       }
       await pool.end();
     }
+    if (runtimePool) await runtimePool.end();
     if (module) await module.close();
   });
 
@@ -193,6 +200,41 @@ describe('PrismaTransactionsRepository', () => {
         ),
       ),
     ).rejects.toMatchObject({ code: '23514' });
+  });
+
+  it('rejects unsupported type conditions through the runtime database role', async () => {
+    const category = Category.create({
+      tenantId: first.tenantId,
+      name: `Tipo inválido ${randomUUID()}`,
+    });
+    const categorySnapshot = await repository.withTenant(first, (scope) =>
+      scope.categories.create(category),
+    );
+    const ruleId = randomUUID();
+
+    await expect(
+      withTenant(runtimePool, first.tenantId, async (client: PoolClient) => {
+        const role = await client.query<{ role_name: string }>(
+          'SELECT current_user AS role_name',
+        );
+        expect(role.rows[0]?.role_name).toBe('cfi_runtime');
+        return client.query(
+          `INSERT INTO category_rules (
+             id, tenant_id, category_id, condition_field,
+             condition_operator, condition_value, priority
+           ) VALUES ($1, $2, $3, 'type', 'equals', 'transfer', 0)`,
+          [ruleId, first.tenantId, categorySnapshot.id],
+        );
+      }),
+    ).rejects.toMatchObject({ code: '23514' });
+
+    const persisted = await withTenant(pool, first.tenantId, (client) =>
+      client.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM category_rules WHERE id = $1',
+        [ruleId],
+      ),
+    );
+    expect(persisted.rows[0]?.count).toBe('0');
   });
 
   it('claims and completes an idempotency key inside the tenant scope', async () => {

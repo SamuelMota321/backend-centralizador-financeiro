@@ -5,6 +5,7 @@ import type { AuditRecord } from '../../../audit/application/audit-record.js';
 import type { AuditWriter } from '../../../audit/application/ports/audit-writer.port.js';
 import type { AccountSnapshot } from '../../domain/account.js';
 import type { AccountView } from '../account-view.js';
+import { AccountHasActiveCategoryRules } from '../accounts.errors.js';
 import type {
   AccountMaintenanceScope,
   TenantAccountsRepository,
@@ -105,6 +106,17 @@ describe('DeactivateAccount', () => {
     expect(write.mock.calls[0]?.[0]).toMatchObject({
       props: { metadata: { stateTransition: 'already_archived' } },
     });
+  });
+
+  it('does not record account archival when active category rules block it', async () => {
+    const { unitOfWork, deactivate, write } = harness(snapshot);
+    const conflict = new AccountHasActiveCategoryRules();
+    deactivate.mockRejectedValue(conflict);
+
+    await expect(
+      new DeactivateAccount(unitOfWork).execute(context, accountId, requestId),
+    ).rejects.toBe(conflict);
+    expect(write).not.toHaveBeenCalled();
   });
 
   it('does not commit a successful result when audit writing fails', async () => {

@@ -1817,6 +1817,76 @@
             },
             "description": ""
           },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["path", "code", "message"],
+                        "properties": {
+                          "path": { "type": "string" },
+                          "code": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "origin",
+                          "institutionName"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "checking",
+                              "savings",
+                              "payment",
+                              "cash",
+                              "credit_card",
+                              "investment",
+                              "other"
+                            ]
+                          },
+                          "origin": { "type": "string", "enum": ["connected"] },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "description": "Canonical request correlation identifier.",
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "description": ""
+          },
           "500": {
             "content": {
               "application/problem+json": {

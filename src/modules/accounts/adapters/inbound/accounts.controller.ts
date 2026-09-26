@@ -172,6 +172,7 @@ export class AccountsController {
     headers: REQUEST_ID_RESPONSE_HEADERS,
   })
   @ApiBadRequestResponse(PROBLEM_DETAILS_RESPONSE)
+  @ApiConflictResponse(PROBLEM_DETAILS_RESPONSE)
   @ApiUnauthorizedResponse(PROBLEM_DETAILS_RESPONSE)
   @ApiForbiddenResponse(PROBLEM_DETAILS_RESPONSE)
   @ApiNotFoundResponse(PROBLEM_DETAILS_RESPONSE)

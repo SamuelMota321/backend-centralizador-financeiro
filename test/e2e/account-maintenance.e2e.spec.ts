@@ -19,6 +19,8 @@ import { createTestPool, withTenant } from '../helpers/database.js';
 
 type IdentityContextRow = { user_id: string; tenant_id: string };
 type AccountBody = { id: string; archivedAt: string | null };
+type CategoryBody = { id: string };
+type CategoryRuleBody = { id: string; status: string };
 type AccountPageBody = { items: Array<{ id: string }> };
 type ProblemBody = {
   errors?: Array<{ path: string; code: string; message: string }>;
@@ -247,6 +249,62 @@ describe('account maintenance API', () => {
     ]);
   });
 
+  it('rejects account archival while an active rule references it', async () => {
+    const created = await request(server)
+      .post('/api/v1/accounts')
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        name: `Conta com regra ${randomUUID()}`,
+        type: 'cash',
+        initialBalance: '0.00',
+        initialBalanceAsOf: '2026-09-01',
+      })
+      .expect(201);
+    const accountId = (created.body as AccountBody).id;
+    const category = await request(server)
+      .post('/api/v1/categories')
+      .set('Authorization', 'Bearer valid-first')
+      .send({ name: `Categoria de regra ${randomUUID()}` })
+      .expect(201);
+    const categoryId = (category.body as CategoryBody).id;
+    const rule = await request(server)
+      .post('/api/v1/category-rules')
+      .set('Authorization', 'Bearer valid-first')
+      .send({
+        categoryId,
+        conditionField: 'accountId',
+        conditionOperator: 'equals',
+        conditionValue: accountId,
+        priority: 0,
+      })
+      .expect(201);
+    expect((rule.body as CategoryRuleBody).status).toBe('active');
+
+    const conflict = await request(server)
+      .post(`/api/v1/accounts/${accountId}/deactivate`)
+      .set('Authorization', 'Bearer valid-first')
+      .expect(409);
+    expect(conflict.body).toMatchObject({
+      code: 'CATEGORY_RULE_CONFLICT',
+      status: 409,
+    });
+
+    const accountState = await withTenant(pool, first.tenant_id, (client) =>
+      client.query<{ archived_at: Date | null }>(
+        'SELECT archived_at FROM accounts WHERE id = $1',
+        [accountId],
+      ),
+    );
+    expect(accountState.rows[0]?.archived_at).toBeNull();
+    const ruleState = await withTenant(pool, first.tenant_id, (client) =>
+      client.query<{ status: string }>(
+        'SELECT status FROM category_rules WHERE id = $1',
+        [(rule.body as CategoryRuleBody).id],
+      ),
+    );
+    expect(ruleState.rows[0]?.status).toBe('active');
+  });
+
   it('does not reveal an account from another tenant', async () => {
     const created = await request(server)
       .post('/api/v1/accounts')
@@ -273,9 +331,7 @@ describe('account maintenance API', () => {
     });
 
     const deactivation = await request(server)
-      .post(
-        `/api/v1/accounts/${(created.body as AccountBody).id}/deactivate`,
-      )
+      .post(`/api/v1/accounts/${(created.body as AccountBody).id}/deactivate`)
       .set('Authorization', 'Bearer valid-second')
       .expect(404);
     expect(deactivation.body).toEqual(response.body);

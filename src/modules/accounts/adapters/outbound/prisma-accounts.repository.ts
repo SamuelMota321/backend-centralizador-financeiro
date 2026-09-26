@@ -14,6 +14,7 @@ import type {
   AccountsRepository,
   TenantAccountsRepository,
 } from '../../application/ports/accounts.repository.port.js';
+import { AccountHasActiveCategoryRules } from '../../application/accounts.errors.js';
 import type { Account, AccountSnapshot } from '../../domain/account.js';
 import type { AccountType } from '../../domain/account-type.js';
 import { AccountNotFound } from '../../domain/account.errors.js';
@@ -120,13 +121,25 @@ export class PrismaTenantAccountsRepository implements TenantAccountsRepository 
   }
 
   async deactivate(accountId: string): Promise<AccountView> {
-    await this.transaction.$executeRaw`
-      UPDATE public.accounts
-      SET archived_at = CURRENT_TIMESTAMP
-      WHERE id = ${accountId}::uuid
-        AND tenant_id = ${this.context.tenantId}::uuid
-        AND archived_at IS NULL
-    `;
+    try {
+      await this.transaction.$executeRaw`
+        UPDATE public.accounts
+        SET archived_at = CURRENT_TIMESTAMP
+        WHERE id = ${accountId}::uuid
+          AND tenant_id = ${this.context.tenantId}::uuid
+          AND archived_at IS NULL
+      `;
+    } catch (error: unknown) {
+      if (
+        hasNamedConstraint(
+          error,
+          'accounts_active_category_rules_archive_check',
+        )
+      ) {
+        throw new AccountHasActiveCategoryRules();
+      }
+      throw error;
+    }
     return this.findView(accountId);
   }
 
@@ -178,6 +191,28 @@ export class PrismaTenantAccountsRepository implements TenantAccountsRepository 
     });
     return records.map(toAccountView);
   }
+}
+
+function hasNamedConstraint(error: unknown, constraint: string): boolean {
+  const visited = new Set<object>();
+
+  function contains(value: unknown): boolean {
+    if (typeof value === 'string') return value.includes(constraint);
+    if (typeof value !== 'object' || value === null || visited.has(value)) {
+      return false;
+    }
+    visited.add(value);
+    const record = value as Record<string, unknown>;
+    return (
+      record.constraint === constraint ||
+      contains(record.message) ||
+      contains(record.meta) ||
+      contains(record.cause) ||
+      contains(record.driverAdapterError)
+    );
+  }
+
+  return contains(error);
 }
 
 @Injectable()

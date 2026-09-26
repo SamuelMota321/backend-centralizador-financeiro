@@ -8,7 +8,10 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { ZodError, type ZodIssue } from 'zod';
-import { PossibleConnectedAccountDuplicate } from '../../application/accounts.errors.js';
+import {
+  AccountHasActiveCategoryRules,
+  PossibleConnectedAccountDuplicate,
+} from '../../application/accounts.errors.js';
 import { IdentityContextUnavailable } from '../../../identity/domain/identity.errors.js';
 import {
   AccountArchived,
@@ -90,6 +93,16 @@ export class AccountProblemDetailsFilter implements ExceptionFilter {
         detail:
           'Confirm the possible duplicate to create a separate manual account.',
         candidates: exception.candidates,
+      };
+    }
+    if (exception instanceof AccountHasActiveCategoryRules) {
+      return {
+        type: 'about:blank',
+        title: 'Category rule conflict',
+        status: 409,
+        code: 'CATEGORY_RULE_CONFLICT',
+        detail:
+          'The account is referenced by one or more active category rules.',
       };
     }
     if (exception instanceof AccountNotFound) {
