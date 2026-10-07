@@ -5,6 +5,7 @@ import { HealthModule } from './health/health.module.js';
 import { DatabaseModule } from './infrastructure/database/database.module.js';
 import { AccountsModule } from './modules/accounts/accounts.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
+import { IngestionModule } from './modules/ingestion/ingestion.module.js';
 import { TransactionsModule } from './modules/transactions/transactions.module.js';
 
 @Module({
@@ -18,6 +19,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module.j
     IdentityModule,
     AccountsModule,
     TransactionsModule,
+    IngestionModule,
     HealthModule,
   ],
 })

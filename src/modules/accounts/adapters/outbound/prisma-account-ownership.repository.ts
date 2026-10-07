@@ -3,6 +3,7 @@ import { PrismaTenantTransaction } from '../../../../infrastructure/database/pri
 import type { TenantContext } from '../../../../shared/application/tenant-context.js';
 import type {
   AccountOwnership,
+  AccountImportAvailability,
   AccountOwnershipState,
 } from '../../application/ports/account-ownership.port.js';
 
@@ -22,6 +23,26 @@ export class PrismaAccountOwnership implements AccountOwnership {
 
       if (!account) return 'missing';
       return account.archivedAt === null ? 'active' : 'archived';
+    });
+  }
+
+  getOwnedImportAvailability(
+    context: TenantContext,
+    accountId: string,
+  ): Promise<AccountImportAvailability> {
+    return this.tenantTransaction.run(context, async (transaction) => {
+      const account = await transaction.account.findFirst({
+        where: { id: accountId, tenantId: context.tenantId },
+        select: { archivedAt: true, origin: true },
+      });
+
+      if (!account) return 'missing';
+      if (account.origin === 'MANUAL') {
+        return account.archivedAt === null ? 'active_local' : 'archived_local';
+      }
+      return account.archivedAt === null
+        ? 'active_connected'
+        : 'archived_connected';
     });
   }
 }

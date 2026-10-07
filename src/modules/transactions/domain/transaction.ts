@@ -26,6 +26,7 @@ export type TransactionProps = Readonly<{
   amount: TransactionAmount;
   occurredOn: CivilDate;
   description: string | null;
+  externalIdentityKey: string | null;
   status: TransactionStatus;
   transferId: string | null;
   transferSide: TransferSide | null;
@@ -42,6 +43,7 @@ export type TransactionSnapshot = Readonly<{
   amount: string;
   occurredOn: CivilDate;
   description: string | null;
+  externalIdentityKey: string | null;
   status: TransactionStatus;
   transferId: string | null;
   transferSide: TransferSide | null;
@@ -92,6 +94,7 @@ export class Transaction {
       amount: TransactionAmount.fromDecimal(input.amount),
       occurredOn: parseCivilDate(input.occurredOn),
       description: normalizeDescription(input.description),
+      externalIdentityKey: null,
       status: 'posted',
       transferId: null,
       transferSide: null,
@@ -109,6 +112,7 @@ export class Transaction {
       amount: TransactionAmount.fromDecimal(input.amount),
       occurredOn: parseCivilDate(input.occurredOn),
       description: normalizeDescription(input.description),
+      externalIdentityKey: null,
       status: 'posted',
       transferId: input.transferId,
       transferSide: input.transferSide,
@@ -127,6 +131,7 @@ export class Transaction {
         amount: TransactionAmount.fromDecimal(input.amount),
         occurredOn: parseCivilDate(input.occurredOn),
         description: normalizeDescription(input.description),
+        externalIdentityKey: input.externalIdentityKey,
         status: input.status,
         transferId: input.transferId,
         transferSide: input.transferSide,
@@ -143,6 +148,22 @@ export class Transaction {
     );
     transaction.assertInvariants();
     return transaction;
+  }
+
+  static createImported(
+    input: CreateManualTransactionInput &
+      Readonly<{ externalIdentityKey: string }>,
+  ): Transaction {
+    if (!/^[0-9a-f]{64}$/u.test(input.externalIdentityKey)) {
+      throw new InvalidTransactionState(
+        'Invalid external transaction identity.',
+      );
+    }
+    const manual = Transaction.createManual(input);
+    return new Transaction({
+      ...manual.props,
+      externalIdentityKey: input.externalIdentityKey,
+    });
   }
 
   categorize(
@@ -176,7 +197,7 @@ export class Transaction {
             categorizationSource: source,
             updatedAt: parseDateTime(updatedAt),
           }
-      : null,
+        : null,
     );
   }
 

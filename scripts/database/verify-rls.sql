@@ -6,6 +6,8 @@ DECLARE
   forced_count integer;
   policy_count integer;
   audit_owner name;
+  import_runs_owner name;
+  ingestion_items_owner name;
   runtime_is_safe boolean;
   test_is_safe boolean;
 BEGIN
@@ -20,7 +22,9 @@ BEGIN
     'public.categories'::regclass,
     'public.transactions'::regclass,
     'public.category_rules'::regclass,
-    'public.idempotency_keys'::regclass
+    'public.idempotency_keys'::regclass,
+    'public.import_runs'::regclass,
+    'public.ingestion_items'::regclass
   )
   AND relrowsecurity;
 
@@ -35,7 +39,9 @@ BEGIN
     'public.categories'::regclass,
     'public.transactions'::regclass,
     'public.category_rules'::regclass,
-    'public.idempotency_keys'::regclass
+    'public.idempotency_keys'::regclass,
+    'public.import_runs'::regclass,
+    'public.ingestion_items'::regclass
   )
   AND relforcerowsecurity;
 
@@ -51,12 +57,22 @@ BEGIN
       'categories',
       'transactions',
       'category_rules',
-      'idempotency_keys'
+      'idempotency_keys',
+      'import_runs',
+      'ingestion_items'
     );
 
   SELECT relowner::regrole INTO audit_owner
   FROM pg_class
   WHERE oid = 'public.audit_records'::regclass;
+
+  SELECT relowner::regrole INTO import_runs_owner
+  FROM pg_class
+  WHERE oid = 'public.import_runs'::regclass;
+
+  SELECT relowner::regrole INTO ingestion_items_owner
+  FROM pg_class
+  WHERE oid = 'public.ingestion_items'::regclass;
 
   SELECT (
     NOT rolsuper AND NOT rolbypassrls AND rolname = 'cfi_runtime'
@@ -70,12 +86,16 @@ BEGIN
   FROM pg_roles
   WHERE rolname = 'cfi_test';
 
-  IF enabled_count <> 9 OR forced_count <> 9 OR policy_count <> 34 THEN
+  IF enabled_count <> 11 OR forced_count <> 11 OR policy_count <> 42 THEN
     RAISE EXCEPTION 'RLS verification failed: enabled %, forced %, policies %',
       enabled_count, forced_count, policy_count;
   END IF;
   IF audit_owner <> 'cfi_owner' THEN
     RAISE EXCEPTION 'audit_records owner must be cfi_owner, got %', audit_owner;
+  END IF;
+  IF import_runs_owner <> 'cfi_owner' OR ingestion_items_owner <> 'cfi_owner' THEN
+    RAISE EXCEPTION 'Ingestion table owners must be cfi_owner, got % and %',
+      import_runs_owner, ingestion_items_owner;
   END IF;
   IF NOT COALESCE(runtime_is_safe, false) OR NOT COALESCE(test_is_safe, false) THEN
     RAISE EXCEPTION 'runtime/test role security attributes are unsafe';
@@ -107,7 +127,15 @@ BEGIN
      OR NOT has_table_privilege('cfi_runtime', 'public.idempotency_keys', 'SELECT')
      OR NOT has_table_privilege('cfi_runtime', 'public.idempotency_keys', 'INSERT')
      OR NOT has_table_privilege('cfi_runtime', 'public.idempotency_keys', 'UPDATE')
-     OR has_table_privilege('cfi_runtime', 'public.idempotency_keys', 'DELETE') THEN
+     OR has_table_privilege('cfi_runtime', 'public.idempotency_keys', 'DELETE')
+     OR NOT has_table_privilege('cfi_runtime', 'public.import_runs', 'SELECT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.import_runs', 'INSERT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.import_runs', 'UPDATE')
+     OR has_table_privilege('cfi_runtime', 'public.import_runs', 'DELETE')
+     OR NOT has_table_privilege('cfi_runtime', 'public.ingestion_items', 'SELECT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.ingestion_items', 'INSERT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.ingestion_items', 'UPDATE')
+     OR has_table_privilege('cfi_runtime', 'public.ingestion_items', 'DELETE') THEN
     RAISE EXCEPTION 'transactions runtime grants are unsafe';
   END IF;
   IF NOT has_table_privilege('cfi_test', 'public.categories', 'SELECT')
@@ -125,7 +153,15 @@ BEGIN
      OR NOT has_table_privilege('cfi_test', 'public.idempotency_keys', 'SELECT')
      OR NOT has_table_privilege('cfi_test', 'public.idempotency_keys', 'INSERT')
      OR NOT has_table_privilege('cfi_test', 'public.idempotency_keys', 'UPDATE')
-     OR NOT has_table_privilege('cfi_test', 'public.idempotency_keys', 'DELETE') THEN
+     OR NOT has_table_privilege('cfi_test', 'public.idempotency_keys', 'DELETE')
+     OR NOT has_table_privilege('cfi_test', 'public.import_runs', 'SELECT')
+     OR NOT has_table_privilege('cfi_test', 'public.import_runs', 'INSERT')
+     OR NOT has_table_privilege('cfi_test', 'public.import_runs', 'UPDATE')
+     OR NOT has_table_privilege('cfi_test', 'public.import_runs', 'DELETE')
+     OR NOT has_table_privilege('cfi_test', 'public.ingestion_items', 'SELECT')
+     OR NOT has_table_privilege('cfi_test', 'public.ingestion_items', 'INSERT')
+     OR NOT has_table_privilege('cfi_test', 'public.ingestion_items', 'UPDATE')
+     OR NOT has_table_privilege('cfi_test', 'public.ingestion_items', 'DELETE') THEN
     RAISE EXCEPTION 'transactions test grants are unsafe';
   END IF;
 END $$;
@@ -177,6 +213,18 @@ INSERT INTO public.transactions (
   :'category_id_a'::uuid, 'categorized', 'manual'
 ) RETURNING id AS transaction_id_a \gset
 SELECT set_config('verify.transaction_id_a', :'transaction_id_a', false);
+INSERT INTO public.import_runs (
+  tenant_id, status, ofx_variant, file_size_bytes, content_sha256, total_items
+) VALUES (
+  :'tenant_id_a'::uuid, 'preview_ready', 'ofx_1_sgml', 1, repeat('a', 64), 1
+) RETURNING id AS import_run_id_a \gset
+SELECT set_config('verify.import_run_id_a', :'import_run_id_a', false);
+INSERT INTO public.ingestion_items (
+  tenant_id, import_run_id, ordinal, type, amount, occurred_on
+) VALUES (
+  :'tenant_id_a'::uuid, :'import_run_id_a'::uuid, 1, 'expense', '1.00', DATE '2026-09-20'
+) RETURNING id AS ingestion_item_id_a \gset
+SELECT set_config('verify.ingestion_item_id_a', :'ingestion_item_id_a', false);
 INSERT INTO public.category_rules (
   tenant_id, category_id, condition_field, condition_operator, condition_value
 ) VALUES (
@@ -212,6 +260,27 @@ WHERE id = :'transaction_id_a'::uuid;
 SELECT count(*) AS own_category_rule_count
 FROM public.category_rules
 WHERE id = :'category_rule_id_a'::uuid;
+SELECT count(*) AS own_import_run_count
+FROM public.import_runs
+WHERE id = :'import_run_id_a'::uuid;
+SELECT count(*) AS own_ingestion_item_count
+FROM public.ingestion_items
+WHERE id = :'ingestion_item_id_a'::uuid;
+DO $$
+DECLARE
+  run_count integer;
+  item_count integer;
+BEGIN
+  SELECT count(*) INTO run_count
+  FROM public.import_runs
+  WHERE id = current_setting('verify.import_run_id_a')::uuid;
+  SELECT count(*) INTO item_count
+  FROM public.ingestion_items
+  WHERE id = current_setting('verify.ingestion_item_id_a')::uuid;
+  IF run_count <> 1 OR item_count <> 1 THEN
+    RAISE EXCEPTION 'tenant cannot read its own ingestion rows';
+  END IF;
+END $$;
 DO $$
 BEGIN
   UPDATE public.accounts
@@ -240,10 +309,28 @@ WHERE id = :'transaction_id_a'::uuid;
 SELECT count(*) AS foreign_category_rule_count
 FROM public.category_rules
 WHERE id = :'category_rule_id_a'::uuid;
+SELECT count(*) AS foreign_import_run_count
+FROM public.import_runs
+WHERE id = :'import_run_id_a'::uuid;
+SELECT count(*) AS foreign_ingestion_item_count
+FROM public.ingestion_items
+WHERE id = :'ingestion_item_id_a'::uuid;
 DO $$
 DECLARE
+  run_count integer;
+  item_count integer;
   affected_rows integer;
 BEGIN
+  SELECT count(*) INTO run_count
+  FROM public.import_runs
+  WHERE id = current_setting('verify.import_run_id_a')::uuid;
+  SELECT count(*) INTO item_count
+  FROM public.ingestion_items
+  WHERE id = current_setting('verify.ingestion_item_id_a')::uuid;
+  IF run_count <> 0 OR item_count <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant ingestion rows were visible';
+  END IF;
+
   UPDATE public.accounts
   SET name = 'cross-tenant update'
   WHERE id = current_setting('verify.account_id_a')::uuid;
@@ -278,6 +365,23 @@ BEGIN
   GET DIAGNOSTICS affected_rows = ROW_COUNT;
   IF affected_rows <> 0 THEN
     RAISE EXCEPTION 'cross-tenant category rule update unexpectedly affected % rows', affected_rows;
+  END IF;
+
+  UPDATE public.import_runs
+  SET status = 'expired', terminal_at = CURRENT_TIMESTAMP,
+      retention_expires_at = CURRENT_TIMESTAMP + INTERVAL '90 days'
+  WHERE id = current_setting('verify.import_run_id_a')::uuid;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant import run update unexpectedly affected % rows', affected_rows;
+  END IF;
+
+  UPDATE public.ingestion_items
+  SET status = 'failed', error_code = 'rls_test'
+  WHERE id = current_setting('verify.ingestion_item_id_a')::uuid;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant ingestion item update unexpectedly affected % rows', affected_rows;
   END IF;
 END $$;
 DO $$

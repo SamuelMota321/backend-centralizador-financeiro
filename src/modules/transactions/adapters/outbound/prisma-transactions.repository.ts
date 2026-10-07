@@ -60,6 +60,7 @@ const transactionSelect = {
   id: true,
   tenantId: true,
   accountId: true,
+  externalIdentityKey: true,
   type: true,
   amount: true,
   occurredOn: true,
@@ -362,6 +363,59 @@ class PrismaTenantTransactionsRepository implements TenantTransactionsRepository
       },
       select: transactionSelect,
     });
+    return toTransactionSnapshot(record);
+  }
+
+  async createIfExternalIdentityAbsent(
+    transaction: Transaction,
+  ): Promise<TransactionSnapshot | null> {
+    assertEntityTenant(transaction.props.tenantId, this.context);
+    const externalIdentityKey = transaction.props.externalIdentityKey;
+    if (!externalIdentityKey) {
+      throw new Error('An external identity key is required for import.');
+    }
+
+    const inserted = await this.transaction.transaction.createMany({
+      data: [
+        {
+          tenantId: this.context.tenantId,
+          accountId: transaction.props.accountId,
+          externalIdentityKey,
+          type: TO_PRISMA_TRANSACTION_TYPE[transaction.props.type],
+          amount: transaction.props.amount.toDecimal(),
+          occurredOn: toDate(transaction.props.occurredOn),
+          description: transaction.props.description,
+          status: TO_PRISMA_TRANSACTION_STATUS[transaction.props.status],
+          transferId: transaction.props.transferId,
+          transferSide: transaction.props.transferSide
+            ? TO_PRISMA_TRANSFER_SIDE[transaction.props.transferSide]
+            : null,
+          categoryId: transaction.props.categoryId,
+          categorizationStatus:
+            TO_PRISMA_CATEGORIZATION_STATUS[
+              transaction.props.categorizationStatus
+            ],
+          categorizationSource: transaction.props.categorizationSource
+            ? TO_PRISMA_CATEGORIZATION_SOURCE[
+                transaction.props.categorizationSource
+              ]
+            : null,
+        },
+      ],
+      skipDuplicates: true,
+    });
+    if (inserted.count === 0) return null;
+
+    const record = await this.transaction.transaction.findFirst({
+      where: {
+        tenantId: this.context.tenantId,
+        accountId: transaction.props.accountId,
+        externalIdentityKey,
+      },
+      select: transactionSelect,
+    });
+    if (!record)
+      throw new Error('Imported transaction was not readable after insert.');
     return toTransactionSnapshot(record);
   }
 
@@ -684,6 +738,7 @@ function toTransactionSnapshot(record: TransactionRecord): TransactionSnapshot {
     id: record.id,
     tenantId: record.tenantId,
     accountId: record.accountId,
+    externalIdentityKey: record.externalIdentityKey,
     type: FROM_PRISMA_TRANSACTION_TYPE[record.type],
     amount: record.amount.toFixed(2),
     occurredOn: record.occurredOn.toISOString().slice(0, 10),

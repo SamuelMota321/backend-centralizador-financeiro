@@ -17,8 +17,10 @@ import type {
 import type { TransactionsUnitOfWork } from '../ports/transactions.unit-of-work.port.js';
 import type { TransactionAccountOwnership } from '../ports/transaction-account-ownership.port.js';
 import type { TransactionAccountStateReader } from '../ports/transaction-account-state.port.js';
+import type { TransactionAccountImportEligibilityReader } from '../ports/transaction-account-import-eligibility.port.js';
 import {
   CategoryArchived,
+  InvalidTransactionRequest,
   TransactionAccountArchived,
   TransactionAccountNotFound,
   TransactionsTenantMismatch,
@@ -26,6 +28,7 @@ import {
 import { CreateCategory } from './create-category.js';
 import { CreateCategoryRule } from './create-category-rule.js';
 import { GetTransaction } from './get-transaction.js';
+import { ImportOfxTransaction } from './import-ofx-transaction.js';
 import { PersistTransaction } from './persist-transaction.js';
 import { UpdateCategoryRule } from './update-category-rule.js';
 
@@ -38,6 +41,7 @@ const transactionSnapshot: TransactionSnapshot = {
   id: randomUUID(),
   tenantId: context.tenantId,
   accountId: randomUUID(),
+  externalIdentityKey: null,
   type: 'income',
   amount: '10.50',
   occurredOn: '2026-09-20',
@@ -80,12 +84,16 @@ const categoryRuleSnapshot: CategoryRuleSnapshot = {
 function createRepository() {
   let capturedCategory: Category | undefined;
   const createTransaction = vi.fn(() => Promise.resolve(transactionSnapshot));
+  const createTransactionIfAbsent = vi.fn((_transaction: Transaction) =>
+    Promise.resolve<TransactionSnapshot | null>(transactionSnapshot),
+  );
   const findTransactionById = vi.fn(() => Promise.resolve(transactionSnapshot));
   const findTransactionsByIds = vi.fn(() =>
     Promise.resolve([transactionSnapshot]),
   );
   const transactions: TenantTransactionsRepository = {
     create: createTransaction,
+    createIfExternalIdentityAbsent: createTransactionIfAbsent,
     findById: findTransactionById,
     findByIds: findTransactionsByIds,
     findByIdForUpdate: findTransactionById,
@@ -147,6 +155,7 @@ function createRepository() {
     auditWrite,
     spies: {
       createTransaction,
+      createTransactionIfAbsent,
       findTransactionById,
       findTransactionsByIds,
       createCategory,
@@ -159,6 +168,116 @@ function createRepository() {
 }
 
 describe('Transactions application boundaries', () => {
+  it('imports OFX rows through the active account and atomic dedupe boundary', async () => {
+    const { unitOfWork, auditWrite, spies } = createRepository();
+    const accountState: TransactionAccountImportEligibilityReader = {
+      getOwnedImportAvailability: vi.fn<
+        TransactionAccountImportEligibilityReader['getOwnedImportAvailability']
+      >(() => Promise.resolve('active_local')),
+    };
+
+    const result = await new ImportOfxTransaction(
+      unitOfWork,
+      accountState,
+    ).execute(context, {
+      accountId: transactionSnapshot.accountId,
+      type: 'expense',
+      amount: '10.50',
+      occurredOn: '2026-09-20',
+      description: 'Mercado',
+      externalId: 'bank-fitid-1',
+    });
+
+    expect(result).toEqual({
+      disposition: 'imported',
+      transactionId: transactionSnapshot.id,
+    });
+    expect(spies.createTransactionIfAbsent).toHaveBeenCalledOnce();
+    expect(
+      spies.createTransactionIfAbsent.mock.calls[0]?.[0].props
+        .externalIdentityKey,
+    ).toMatch(/^[0-9a-f]{64}$/u);
+    expect(auditWrite).toHaveBeenCalledOnce();
+  });
+
+  it('reports a concurrent duplicate without a second audit write', async () => {
+    const { unitOfWork, auditWrite, spies } = createRepository();
+    spies.createTransactionIfAbsent.mockResolvedValueOnce(null);
+    const accountState: TransactionAccountImportEligibilityReader = {
+      getOwnedImportAvailability: vi.fn<
+        TransactionAccountImportEligibilityReader['getOwnedImportAvailability']
+      >(() => Promise.resolve('active_local')),
+    };
+
+    await expect(
+      new ImportOfxTransaction(unitOfWork, accountState).execute(context, {
+        accountId: transactionSnapshot.accountId,
+        type: 'expense',
+        amount: '10.50',
+        occurredOn: '2026-09-20',
+        description: 'Mercado',
+        externalId: null,
+      }),
+    ).resolves.toEqual({ disposition: 'duplicate' });
+    expect(auditWrite).not.toHaveBeenCalled();
+  });
+
+  it('uses the normalized date, signed amount, and description for fallback identity', async () => {
+    const { unitOfWork, spies } = createRepository();
+    const identityKeys: Array<string | null> = [];
+    spies.createTransactionIfAbsent.mockImplementation((transaction) => {
+      identityKeys.push(transaction.props.externalIdentityKey);
+      return Promise.resolve(transactionSnapshot);
+    });
+    const accountState: TransactionAccountImportEligibilityReader = {
+      getOwnedImportAvailability: vi.fn<
+        TransactionAccountImportEligibilityReader['getOwnedImportAvailability']
+      >(() => Promise.resolve('active_local')),
+    };
+    const importer = new ImportOfxTransaction(unitOfWork, accountState);
+
+    await importer.execute(context, {
+      accountId: transactionSnapshot.accountId,
+      type: 'expense',
+      amount: '10.5',
+      occurredOn: '2026-09-20',
+      description: ' Market\n purchase ',
+      externalId: null,
+    });
+    await importer.execute(context, {
+      accountId: transactionSnapshot.accountId,
+      type: 'expense',
+      amount: '10.50',
+      occurredOn: '2026-09-20',
+      description: 'Market purchase',
+      externalId: null,
+    });
+
+    expect(identityKeys[0]).toMatch(/^[0-9a-f]{64}$/u);
+    expect(identityKeys[1]).toBe(identityKeys[0]);
+  });
+
+  it('rejects a connected account before transaction persistence', async () => {
+    const { unitOfWork, spies } = createRepository();
+    const accountState: TransactionAccountImportEligibilityReader = {
+      getOwnedImportAvailability: vi.fn<
+        TransactionAccountImportEligibilityReader['getOwnedImportAvailability']
+      >(() => Promise.resolve('active_connected')),
+    };
+
+    await expect(
+      new ImportOfxTransaction(unitOfWork, accountState).execute(context, {
+        accountId: transactionSnapshot.accountId,
+        type: 'expense',
+        amount: '10.50',
+        occurredOn: '2026-09-20',
+        description: 'Mercado',
+        externalId: 'bank-fitid-1',
+      }),
+    ).rejects.toBeInstanceOf(InvalidTransactionRequest);
+    expect(spies.createTransactionIfAbsent).not.toHaveBeenCalled();
+  });
+
   it('persists only a transaction owned by the authenticated context', async () => {
     const { unitOfWork, auditWrite, spies } = createRepository();
     const accountOwnership: TransactionAccountOwnership = {

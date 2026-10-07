@@ -73,6 +73,7 @@ describe('Transaction', () => {
       id: randomUUID(),
       tenantId,
       accountId,
+      externalIdentityKey: null,
       type: 'expense',
       amount: '12.34',
       occurredOn: '2026-09-20',

@@ -1,0 +1,1 @@
+synthetic invoice text; this is not an OFX statement

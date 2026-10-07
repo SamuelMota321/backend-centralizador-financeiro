@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?OFX OFXHEADER="200" VERSION="220" SECURITY="NONE" OLDFILEUID="NONE" NEWFILEUID="NONE"?>
+<OFX>
+  <CREDITCARDMSGSRSV1>
+    <CCSTMTTRNRS>
+      <CCSTMTRS>
+        <CURDEF>BRL</CURDEF>
+        <CCACCTFROM><ACCTID>synthetic-card-01</ACCTID></CCACCTFROM>
+        <BANKTRANLIST>
+          <CCSTMTTRN>
+            <TRNTYPE>CREDIT</TRNTYPE>
+            <DTPOSTED>20261001123000.000[-3:BRT]</DTPOSTED>
+            <TRNAMT>102.50</TRNAMT>
+            <FITID>synthetic-card-001</FITID>
+            <NAME>Café da manhã</NAME>
+          </CCSTMTTRN>
+        </BANKTRANLIST>
+      </CCSTMTRS>
+    </CCSTMTTRNRS>
+  </CREDITCARDMSGSRSV1>
+</OFX>

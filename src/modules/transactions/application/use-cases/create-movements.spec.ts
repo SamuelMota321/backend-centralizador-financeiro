@@ -374,6 +374,7 @@ function createFixture(
         id: randomUUID(),
         tenantId: transaction.props.tenantId,
         accountId: transaction.props.accountId,
+        externalIdentityKey: transaction.props.externalIdentityKey,
         type: transaction.props.type,
         amount: transaction.props.amount.toDecimal(),
         occurredOn: transaction.props.occurredOn,
@@ -390,6 +391,7 @@ function createFixture(
       createdTransactions.push(snapshot);
       return Promise.resolve(snapshot);
     },
+    createIfExternalIdentityAbsent: () => Promise.resolve(null),
     findById: (transactionId: string) =>
       Promise.resolve(
         createdTransactions.find(({ id }) => id === transactionId) ?? null,

@@ -11,6 +11,10 @@ import {
   TRANSACTION_ACCOUNT_STATE,
   type TransactionAccountStateReader,
 } from './application/ports/transaction-account-state.port.js';
+import {
+  TRANSACTION_ACCOUNT_IMPORT_ELIGIBILITY,
+  type TransactionAccountImportEligibilityReader,
+} from './application/ports/transaction-account-import-eligibility.port.js';
 import { CreateCategory } from './application/use-cases/create-category.js';
 import { CreateCategoryRule } from './application/use-cases/create-category-rule.js';
 import { CreateAccountingTransfer } from './application/use-cases/create-accounting-transfer.js';
@@ -18,6 +22,7 @@ import { CreateManualTransaction } from './application/use-cases/create-manual-t
 import { DeactivateCategory } from './application/use-cases/deactivate-category.js';
 import { CategoryRuleLifecycle } from './application/use-cases/category-rule-lifecycle.js';
 import { GetTransaction } from './application/use-cases/get-transaction.js';
+import { ImportOfxTransaction } from './application/use-cases/import-ofx-transaction.js';
 import { ListCategories } from './application/use-cases/list-categories.js';
 import { ListCategoryRules } from './application/use-cases/list-category-rules.js';
 import { ListTransactions } from './application/use-cases/list-transactions.js';
@@ -47,6 +52,16 @@ import {
       useFactory: (
         ownership: AccountOwnership,
       ): TransactionAccountStateReader => ownership,
+      inject: [ACCOUNT_OWNERSHIP],
+    },
+    {
+      provide: TRANSACTION_ACCOUNT_IMPORT_ELIGIBILITY,
+      useFactory: (
+        ownership: AccountOwnership,
+      ): TransactionAccountImportEligibilityReader => ({
+        getOwnedImportAvailability: (context, accountId) =>
+          ownership.getOwnedImportAvailability(context, accountId),
+      }),
       inject: [ACCOUNT_OWNERSHIP],
     },
     {
@@ -154,6 +169,17 @@ import {
         new GetTransaction(repository),
       inject: [TRANSACTIONS_REPOSITORY],
     },
+    {
+      provide: ImportOfxTransaction,
+      useFactory: (
+        unitOfWork: TransactionsUnitOfWork,
+        accountState: TransactionAccountImportEligibilityReader,
+      ) => new ImportOfxTransaction(unitOfWork, accountState),
+      inject: [
+        TRANSACTIONS_UNIT_OF_WORK,
+        TRANSACTION_ACCOUNT_IMPORT_ELIGIBILITY,
+      ],
+    },
   ],
   exports: [
     PrismaTransactionsRepository,
@@ -162,6 +188,7 @@ import {
     CreateCategory,
     CreateCategoryRule,
     GetTransaction,
+    ImportOfxTransaction,
     CreateManualTransaction,
     CreateAccountingTransfer,
     ListTransactions,

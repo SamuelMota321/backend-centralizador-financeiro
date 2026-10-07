@@ -25,6 +25,7 @@ describe('UpdateTransactionCategory', () => {
       id: randomUUID(),
       tenantId: context.tenantId,
       accountId: randomUUID(),
+      externalIdentityKey: null,
       type: 'expense',
       amount: '12.00',
       occurredOn: '2026-09-20',
@@ -118,6 +119,7 @@ function createTransactionSnapshot(tenantId: string): TransactionSnapshot {
     id: randomUUID(),
     tenantId,
     accountId: randomUUID(),
+    externalIdentityKey: null,
     type: 'expense',
     amount: '12.00',
     occurredOn: '2026-09-20',
@@ -138,6 +140,7 @@ function createTransactionsRepository(
 ): TenantTransactionsRepository {
   return {
     create: vi.fn(() => Promise.resolve(snapshot)),
+    createIfExternalIdentityAbsent: vi.fn(() => Promise.resolve(snapshot)),
     findById: vi.fn(() => Promise.resolve(snapshot)),
     findByIdForUpdate: vi.fn(() => Promise.resolve(snapshot)),
     findByIds: vi.fn(() => Promise.resolve([snapshot])),

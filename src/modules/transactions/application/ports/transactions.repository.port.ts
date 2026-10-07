@@ -15,6 +15,9 @@ export const TRANSACTIONS_REPOSITORY = Symbol('TRANSACTIONS_REPOSITORY');
 
 export interface TenantTransactionsRepository {
   create(transaction: Transaction): Promise<TransactionSnapshot>;
+  createIfExternalIdentityAbsent(
+    transaction: Transaction,
+  ): Promise<TransactionSnapshot | null>;
   findById(transactionId: string): Promise<TransactionSnapshot | null>;
   findByIdForUpdate(transactionId: string): Promise<TransactionSnapshot | null>;
   findByIds(transactionIds: readonly string[]): Promise<TransactionSnapshot[]>;

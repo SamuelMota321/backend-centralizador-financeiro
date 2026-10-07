@@ -53,6 +53,34 @@ enum TransactionStatus {
   @@map("transaction_status")
 }
 
+enum OfxVariant {
+  OFX_1_SGML @map("ofx_1_sgml")
+  OFX_2_XML  @map("ofx_2_xml")
+
+  @@map("ofx_variant")
+}
+
+enum ImportRunStatus {
+  PREVIEW_READY         @map("preview_ready")
+  QUEUED                @map("queued")
+  PROCESSING            @map("processing")
+  COMPLETED             @map("completed")
+  COMPLETED_WITH_ERRORS @map("completed_with_errors")
+  FAILED                @map("failed")
+  EXPIRED               @map("expired")
+
+  @@map("import_run_status")
+}
+
+enum IngestionItemStatus {
+  PREVIEWED         @map("previewed")
+  IMPORTED          @map("imported")
+  IGNORED_DUPLICATE @map("ignored_duplicate")
+  FAILED            @map("failed")
+
+  @@map("ingestion_item_status")
+}
+
 enum TransferSide {
   OUTGOING @map("outgoing")
   INCOMING @map("incoming")
@@ -162,6 +190,8 @@ model Tenant {
   user         User?
   accounts     Account[]
   transactions Transaction[]
+  importRuns     ImportRun[]
+  ingestionItems IngestionItem[]
   categories   Category[]
   categoryRules CategoryRule[]
   auditRecords AuditRecord[]
@@ -214,6 +244,7 @@ model Account {
   updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant             Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "accounts_tenant_id_fkey")
   transactions       Transaction[]
+  importRuns         ImportRun[]
 
   @@unique([tenantId, externalProvider, externalAccountId], map: "accounts_external_identity_key")
   @@index([tenantId, archivedAt], map: "accounts_tenant_id_archived_at_idx")
@@ -233,6 +264,7 @@ model Transaction {
   transferId           String?             @map("transfer_id") @db.Uuid
   transferSide         TransferSide?       @map("transfer_side")
   categoryId           String?             @map("category_id") @db.Uuid
+  externalIdentityKey  String?             @map("external_identity_key") @db.Char(64)
   categorizationStatus CategorizationStatus @default(UNCLASSIFIED) @map("categorization_status")
   categorizationSource CategorizationSource? @map("categorization_source")
   createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -241,11 +273,63 @@ model Transaction {
   account              Account             @relation(fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "transactions_account_id_fkey")
   category             Category?           @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "transactions_category_id_fkey")
 
+  @@unique([tenantId, accountId, externalIdentityKey], map: "transactions_tenant_account_external_identity_key")
   @@index([tenantId, occurredOn, id], map: "transactions_tenant_occurred_on_id_idx")
   @@index([tenantId, accountId, occurredOn, id], map: "transactions_tenant_account_occurred_on_id_idx")
   @@index([tenantId, transferId], map: "transactions_tenant_transfer_id_idx")
   @@index([tenantId, categoryId], map: "transactions_tenant_category_id_idx")
   @@map("transactions")
+}
+
+model ImportRun {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String          @map("tenant_id") @db.Uuid
+  destinationAccountId  String?         @map("destination_account_id") @db.Uuid
+  status                ImportRunStatus @default(PREVIEW_READY)
+  variant               OfxVariant      @map("ofx_variant")
+  fileSizeBytes         Int             @map("file_size_bytes")
+  contentSha256         String          @map("content_sha256") @db.Char(64)
+  sourceObjectReference String?         @map("source_object_reference") @db.Text
+  totalItems            Int             @default(0) @map("total_items")
+  importedItems         Int             @default(0) @map("imported_items")
+  ignoredItems          Int             @default(0) @map("ignored_items")
+  failedItems           Int             @default(0) @map("failed_items")
+  terminalAt            DateTime?       @map("terminal_at") @db.Timestamptz(3)
+  retentionExpiresAt    DateTime?       @map("retention_expires_at") @db.Timestamptz(3)
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "import_runs_tenant_id_fkey")
+  destinationAccount    Account?        @relation(fields: [destinationAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "import_runs_destination_account_id_fkey")
+  items                 IngestionItem[]
+
+  @@unique([tenantId, id], map: "import_runs_tenant_id_id_key")
+  @@index([tenantId, status, createdAt, id], map: "import_runs_tenant_status_created_at_id_idx")
+  @@index([tenantId, retentionExpiresAt], map: "import_runs_tenant_retention_expires_at_idx")
+  @@map("import_runs")
+}
+
+model IngestionItem {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String              @map("tenant_id") @db.Uuid
+  importRunId String              @map("import_run_id") @db.Uuid
+  ordinal     Int
+  externalId  String?             @map("external_id") @db.VarChar(255)
+  type        TransactionType
+  amount      Decimal             @db.Decimal(19, 2)
+  occurredOn  DateTime            @map("occurred_on") @db.Date
+  description String?             @db.Text
+  status      IngestionItemStatus @default(PREVIEWED)
+  isDuplicate Boolean?            @map("is_duplicate")
+  warnings    Json                @default("[]") @db.JsonB
+  errorCode   String?             @map("error_code") @db.VarChar(100)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ingestion_items_tenant_id_fkey")
+  importRun   ImportRun           @relation(fields: [tenantId, importRunId], references: [tenantId, id], onDelete: Cascade, onUpdate: Restrict, map: "ingestion_items_import_run_tenant_fkey")
+
+  @@unique([tenantId, importRunId, ordinal], map: "ingestion_items_tenant_run_ordinal_key")
+  @@index([tenantId, importRunId, status], map: "ingestion_items_tenant_run_status_idx")
+  @@map("ingestion_items")
 }
 
 model IdempotencyKey {
