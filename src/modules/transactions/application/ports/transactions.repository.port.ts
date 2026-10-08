@@ -18,6 +18,10 @@ export interface TenantTransactionsRepository {
   createIfExternalIdentityAbsent(
     transaction: Transaction,
   ): Promise<TransactionSnapshot | null>;
+  findExistingExternalIdentityKeys(
+    accountId: string,
+    identityKeys: readonly string[],
+  ): Promise<readonly string[]>;
   findById(transactionId: string): Promise<TransactionSnapshot | null>;
   findByIdForUpdate(transactionId: string): Promise<TransactionSnapshot | null>;
   findByIds(transactionIds: readonly string[]): Promise<TransactionSnapshot[]>;

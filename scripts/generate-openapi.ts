@@ -25,6 +25,10 @@ import { ListTransactions } from '../src/modules/transactions/application/use-ca
 import { UpdateCategory } from '../src/modules/transactions/application/use-cases/update-category.js';
 import { UpdateCategoryRule } from '../src/modules/transactions/application/use-cases/update-category-rule.js';
 import { UpdateTransactionCategory } from '../src/modules/transactions/application/use-cases/update-transaction-category.js';
+import { IngestionController } from '../src/modules/ingestion/adapters/inbound/ingestion.controller.js';
+import { ConfirmOfxImport } from '../src/modules/ingestion/application/use-cases/confirm-ofx-import.js';
+import { CreateOfxImportPreview } from '../src/modules/ingestion/application/use-cases/create-ofx-import-preview.js';
+import { GetImportRun } from '../src/modules/ingestion/application/use-cases/get-import-run.js';
 import {
   ACCESS_TOKEN_VERIFIER,
   type AccessTokenVerifier,
@@ -121,6 +125,21 @@ const categoryRuleLifecycle: Pick<CategoryRuleLifecycle, 'execute'> = {
     Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
 };
 
+const createOfxImportPreview: Pick<CreateOfxImportPreview, 'execute'> = {
+  execute: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+};
+
+const confirmOfxImport: Pick<ConfirmOfxImport, 'execute'> = {
+  execute: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+};
+
+const getImportRun: Pick<GetImportRun, 'execute'> = {
+  execute: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+};
+
 const accessTokenVerifier: AccessTokenVerifier = {
   verify: () =>
     Promise.reject(new Error('OpenAPI generation does not verify tokens.')),
@@ -132,7 +151,12 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
 };
 
 @Module({
-  controllers: [HealthController, AccountsController, TransactionsController],
+  controllers: [
+    HealthController,
+    AccountsController,
+    TransactionsController,
+    IngestionController,
+  ],
   providers: [
     {
       provide: DatabaseSecurityCheckService,
@@ -154,6 +178,9 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     { provide: CreateCategoryRule, useValue: createCategoryRule },
     { provide: UpdateCategoryRule, useValue: updateCategoryRule },
     { provide: CategoryRuleLifecycle, useValue: categoryRuleLifecycle },
+    { provide: CreateOfxImportPreview, useValue: createOfxImportPreview },
+    { provide: ConfirmOfxImport, useValue: confirmOfxImport },
+    { provide: GetImportRun, useValue: getImportRun },
     { provide: ACCESS_TOKEN_VERIFIER, useValue: accessTokenVerifier },
     { provide: ResolveIdentityContext, useValue: resolveIdentityContext },
   ],

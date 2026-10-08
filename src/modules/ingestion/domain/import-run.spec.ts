@@ -7,9 +7,11 @@ describe('ImportRun', () => {
   it('moves through the approved lifecycle and retains terminal metadata for 90 days', () => {
     const preview = ImportRun.createPreview({
       tenantId: randomUUID(),
+      destinationAccountId: randomUUID(),
       variant: 'ofx_1_sgml',
       fileSizeBytes: 100,
       contentSha256: 'a'.repeat(64),
+      sourceObjectReference: `ofx/${randomUUID()}/source.ofx`,
       totalItems: 3,
       now: '2026-10-07T12:00:00.000Z',
     });

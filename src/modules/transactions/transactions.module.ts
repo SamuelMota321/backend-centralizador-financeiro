@@ -23,6 +23,7 @@ import { DeactivateCategory } from './application/use-cases/deactivate-category.
 import { CategoryRuleLifecycle } from './application/use-cases/category-rule-lifecycle.js';
 import { GetTransaction } from './application/use-cases/get-transaction.js';
 import { ImportOfxTransaction } from './application/use-cases/import-ofx-transaction.js';
+import { FindOfxTransactionDuplicates } from './application/use-cases/find-ofx-transaction-duplicates.js';
 import { ListCategories } from './application/use-cases/list-categories.js';
 import { ListCategoryRules } from './application/use-cases/list-category-rules.js';
 import { ListTransactions } from './application/use-cases/list-transactions.js';
@@ -180,6 +181,12 @@ import {
         TRANSACTION_ACCOUNT_IMPORT_ELIGIBILITY,
       ],
     },
+    {
+      provide: FindOfxTransactionDuplicates,
+      useFactory: (repository: TransactionsRepository) =>
+        new FindOfxTransactionDuplicates(repository),
+      inject: [TRANSACTIONS_REPOSITORY],
+    },
   ],
   exports: [
     PrismaTransactionsRepository,
@@ -189,6 +196,7 @@ import {
     CreateCategoryRule,
     GetTransaction,
     ImportOfxTransaction,
+    FindOfxTransactionDuplicates,
     CreateManualTransaction,
     CreateAccountingTransfer,
     ListTransactions,

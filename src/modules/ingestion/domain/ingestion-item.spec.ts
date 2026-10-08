@@ -9,6 +9,7 @@ const preview = IngestionItem.preview({
   amount: '10.00',
   occurredOn: '2026-10-01',
   description: 'Synthetic fixture',
+  isDuplicate: false,
   warnings: [],
 });
 

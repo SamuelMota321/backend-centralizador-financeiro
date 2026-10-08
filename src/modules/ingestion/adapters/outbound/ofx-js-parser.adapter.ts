@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { parseStrict } from 'ofx-js';
-import { InvalidOfxFile } from '../../domain/ingestion.errors.js';
+import {
+  InvalidOfxFile,
+  UnsupportedOfxMediaType,
+} from '../../domain/ingestion.errors.js';
 import type {
   OfxVariant,
   ParsedOfxStatement,
@@ -38,7 +41,7 @@ export class OfxJsParserAdapter implements OfxParser {
       throw new InvalidOfxFile('OFX file size is outside the approved limit.');
     }
     if (hasPdfSignature(content)) {
-      throw new InvalidOfxFile('PDF content is not supported.');
+      throw new UnsupportedOfxMediaType('PDF content is not supported.');
     }
 
     const text = decodeSupportedText(content);

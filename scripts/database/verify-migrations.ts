@@ -143,7 +143,9 @@ try {
           'categories',
           'transactions',
           'category_rules',
-          'idempotency_keys'
+          'idempotency_keys',
+          'import_runs',
+          'ingestion_items'
         )
       ORDER BY c.relname`,
   );
@@ -151,10 +153,10 @@ try {
     ({ owner, row_security, force_row_security }) =>
       owner !== 'cfi_owner' || !row_security || !force_row_security,
   );
-  if (protectedTables.rows.length !== 9 || unsafeTables.length > 0) {
+  if (protectedTables.rows.length !== 11 || unsafeTables.length > 0) {
     throw new Error(
       `Protected table verification failed: ${JSON.stringify({
-        expectedCount: 9,
+        expectedCount: 11,
         actualCount: protectedTables.rows.length,
         unsafeTables,
       })}`,

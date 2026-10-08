@@ -26,6 +26,24 @@ const environmentSchema = z.object({
   DATABASE_URL: postgresqlUrl,
   AUTH0_ISSUER_BASE_URL: httpsUrl,
   AUTH0_AUDIENCE: z.string().trim().min(1),
+  R2_ENDPOINT: httpsUrl.optional(),
+  R2_BUCKET_NAME: z.string().trim().min(1).optional(),
+  R2_ACCESS_KEY_ID: z.string().min(1).optional(),
+  R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+}).superRefine((environment, context) => {
+  const r2Settings = [
+    environment.R2_ENDPOINT,
+    environment.R2_BUCKET_NAME,
+    environment.R2_ACCESS_KEY_ID,
+    environment.R2_SECRET_ACCESS_KEY,
+  ];
+  if (r2Settings.some(Boolean) && r2Settings.some((setting) => !setting)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['R2_ENDPOINT'],
+      message: 'R2 settings must be provided as a complete set.',
+    });
+  }
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

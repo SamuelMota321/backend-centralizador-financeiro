@@ -419,6 +419,24 @@ class PrismaTenantTransactionsRepository implements TenantTransactionsRepository
     return toTransactionSnapshot(record);
   }
 
+  async findExistingExternalIdentityKeys(
+    accountId: string,
+    identityKeys: readonly string[],
+  ): Promise<readonly string[]> {
+    if (identityKeys.length === 0) return [];
+    const records = await this.transaction.transaction.findMany({
+      where: {
+        tenantId: this.context.tenantId,
+        accountId,
+        externalIdentityKey: { in: [...identityKeys] },
+      },
+      select: { externalIdentityKey: true },
+    });
+    return records.flatMap((record) =>
+      record.externalIdentityKey ? [record.externalIdentityKey] : [],
+    );
+  }
+
   async findById(transactionId: string): Promise<TransactionSnapshot | null> {
     const record = await this.transaction.transaction.findFirst({
       where: { id: transactionId, tenantId: this.context.tenantId },

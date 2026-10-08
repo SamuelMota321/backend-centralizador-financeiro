@@ -141,6 +141,7 @@ function createTransactionsRepository(
   return {
     create: vi.fn(() => Promise.resolve(snapshot)),
     createIfExternalIdentityAbsent: vi.fn(() => Promise.resolve(snapshot)),
+    findExistingExternalIdentityKeys: vi.fn(() => Promise.resolve([])),
     findById: vi.fn(() => Promise.resolve(snapshot)),
     findByIdForUpdate: vi.fn(() => Promise.resolve(snapshot)),
     findByIds: vi.fn(() => Promise.resolve([snapshot])),

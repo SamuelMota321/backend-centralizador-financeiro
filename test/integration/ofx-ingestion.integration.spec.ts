@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { Pool, type PoolClient } from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { Pool, PoolClient } from 'pg';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../../src/app.module.js';
 import { PrismaIngestionRepository } from '../../src/modules/ingestion/adapters/outbound/prisma-ingestion.repository.js';
+import { OFX_SOURCE_OBJECT_STORE } from '../../src/modules/ingestion/application/ports/ofx-source-object-store.port.js';
 import { CreateOfxImportPreview } from '../../src/modules/ingestion/application/use-cases/create-ofx-import-preview.js';
 import { ImportOfxTransaction } from '../../src/modules/transactions/application/use-cases/import-ofx-transaction.js';
 import { InvalidTransactionRequest } from '../../src/modules/transactions/application/transactions.errors.js';
@@ -23,7 +24,10 @@ describe('OFX ingestion PostgreSQL persistence and RLS', () => {
   let connectedAccountId: string;
 
   beforeAll(async () => {
-    module = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    module = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(OFX_SOURCE_OBJECT_STORE)
+      .useValue({ put: vi.fn(), delete: vi.fn() })
+      .compile();
     await module.init();
     pool = createTestPool();
     const identities = module.get(PrismaIdentityContextResolver);
@@ -50,6 +54,9 @@ describe('OFX ingestion PostgreSQL persistence and RLS', () => {
         if (!context) continue;
         await withTenant(pool, context.tenantId, async (client) => {
           await client.query('DELETE FROM import_runs WHERE tenant_id = $1', [
+            context.tenantId,
+          ]);
+          await client.query('DELETE FROM idempotency_keys WHERE tenant_id = $1', [
             context.tenantId,
           ]);
           await client.query('DELETE FROM transactions WHERE tenant_id = $1', [
@@ -83,35 +90,35 @@ describe('OFX ingestion PostgreSQL persistence and RLS', () => {
     );
     const preview = await module
       .get(CreateOfxImportPreview)
-      .execute(first, content);
+      .execute(first, content, localAccountId, `preview-${randomUUID()}`);
     const repository = module.get(PrismaIngestionRepository);
 
-    expect(preview).toMatchObject({
+    expect(preview.run).toMatchObject({
       tenantId: first.tenantId,
+      destinationAccountId: localAccountId,
       status: 'preview_ready',
       variant: 'ofx_1_sgml',
       totalItems: 1,
-      destinationAccountId: null,
-      sourceObjectReference: null,
     });
-    expect(await repository.findRun(first, preview.id)).toEqual(preview);
-    expect(await repository.findRun(second, preview.id)).toBeNull();
+    expect(preview.items).toMatchObject([{ isDuplicate: false }]);
+    expect(await repository.findRun(first, preview.run.id)).toEqual(preview);
+    expect(await repository.findRun(second, preview.run.id)).toBeNull();
 
     const own = await withTenant(pool, first.tenantId, async (client) =>
       Promise.all([
-        client.query('SELECT id FROM import_runs WHERE id = $1', [preview.id]),
+        client.query('SELECT id FROM import_runs WHERE id = $1', [preview.run.id]),
         client.query(
           'SELECT id FROM ingestion_items WHERE import_run_id = $1',
-          [preview.id],
+          [preview.run.id],
         ),
       ]),
     );
     const other = await withTenant(pool, second.tenantId, async (client) =>
       Promise.all([
-        client.query('SELECT id FROM import_runs WHERE id = $1', [preview.id]),
+        client.query('SELECT id FROM import_runs WHERE id = $1', [preview.run.id]),
         client.query(
           'SELECT id FROM ingestion_items WHERE import_run_id = $1',
-          [preview.id],
+          [preview.run.id],
         ),
       ]),
     );
@@ -156,6 +163,18 @@ describe('OFX ingestion PostgreSQL persistence and RLS', () => {
       ),
     );
     expect(count.rows[0]?.count).toBe('2');
+
+    const preview = await module
+      .get(CreateOfxImportPreview)
+      .execute(
+        first,
+        readFileSync(
+          new URL('../fixtures/ofx/ofx-1-bank-ascii.ofx', import.meta.url),
+        ),
+        localAccountId,
+        `duplicate-preview-${randomUUID()}`,
+      );
+    expect(preview.items).toMatchObject([{ isDuplicate: true }]);
   });
 });
 

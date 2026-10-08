@@ -31,13 +31,14 @@ export class IngestionItem {
       amount: string;
       occurredOn: string;
       description: string | null;
+      isDuplicate: boolean;
       warnings: readonly OfxIngestionWarning[];
     }>,
   ): IngestionItem {
     return new IngestionItem({
       ...input,
       status: 'previewed',
-      isDuplicate: null,
+      isDuplicate: input.isDuplicate,
       errorCode: null,
     });
   }

@@ -392,6 +392,7 @@ function createFixture(
       return Promise.resolve(snapshot);
     },
     createIfExternalIdentityAbsent: () => Promise.resolve(null),
+    findExistingExternalIdentityKeys: () => Promise.resolve([]),
     findById: (transactionId: string) =>
       Promise.resolve(
         createdTransactions.find(({ id }) => id === transactionId) ?? null,

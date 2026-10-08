@@ -84,8 +84,12 @@ const categoryRuleSnapshot: CategoryRuleSnapshot = {
 function createRepository() {
   let capturedCategory: Category | undefined;
   const createTransaction = vi.fn(() => Promise.resolve(transactionSnapshot));
-  const createTransactionIfAbsent = vi.fn((_transaction: Transaction) =>
-    Promise.resolve<TransactionSnapshot | null>(transactionSnapshot),
+  const createTransactionIfAbsent = vi.fn<
+    TenantTransactionsRepository['createIfExternalIdentityAbsent']
+  >((transaction) =>
+    Promise.resolve(
+      transaction.props.tenantId ? transactionSnapshot : null,
+    ),
   );
   const findTransactionById = vi.fn(() => Promise.resolve(transactionSnapshot));
   const findTransactionsByIds = vi.fn(() =>
@@ -94,6 +98,7 @@ function createRepository() {
   const transactions: TenantTransactionsRepository = {
     create: createTransaction,
     createIfExternalIdentityAbsent: createTransactionIfAbsent,
+    findExistingExternalIdentityKeys: vi.fn(() => Promise.resolve([])),
     findById: findTransactionById,
     findByIds: findTransactionsByIds,
     findByIdForUpdate: findTransactionById,

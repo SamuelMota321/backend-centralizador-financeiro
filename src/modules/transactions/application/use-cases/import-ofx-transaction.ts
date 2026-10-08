@@ -1,12 +1,10 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import {
   assertTenantContext,
   type TenantContext,
 } from '../../../../shared/application/tenant-context.js';
 import { AuditRecord } from '../../../audit/application/audit-record.js';
 import { Transaction } from '../../domain/transaction.js';
-import { TransactionAmount } from '../../domain/transaction-amount.js';
-import { parseCivilDate } from '../../domain/civil-date.js';
 import {
   InvalidTransactionRequest,
   TransactionAccountArchived,
@@ -14,6 +12,7 @@ import {
 } from '../transactions.errors.js';
 import type { TransactionAccountImportEligibilityReader } from '../ports/transaction-account-import-eligibility.port.js';
 import type { TransactionsUnitOfWork } from '../ports/transactions.unit-of-work.port.js';
+import { createOfxExternalIdentityKey } from '../ofx-identity.js';
 
 export type ImportOfxTransactionInput = Readonly<{
   accountId: string;
@@ -51,7 +50,7 @@ export class ImportOfxTransaction {
       amount: input.amount,
       occurredOn: input.occurredOn,
       description: input.description,
-      externalIdentityKey: createExternalIdentityKey(input),
+      externalIdentityKey: createOfxExternalIdentityKey(input),
     });
 
     const accountState = await this.accountState.getOwnedImportAvailability(
@@ -88,29 +87,6 @@ export class ImportOfxTransaction {
       return { disposition: 'imported', transactionId: snapshot.id };
     });
   }
-}
-
-function createExternalIdentityKey(input: ImportOfxTransactionInput): string {
-  const externalId = input.externalId?.trim() ?? '';
-  if (externalId.length > 255) {
-    throw new InvalidTransactionRequest('Invalid external transaction ID.');
-  }
-
-  const identity = externalId
-    ? `fitid\u0000${externalId}`
-    : [
-        'fallback',
-        parseCivilDate(input.occurredOn),
-        input.type === 'income' ? '+' : '-',
-        TransactionAmount.fromDecimal(input.amount).toDecimal(),
-        normalizeDescription(input.description) ?? '',
-      ].join('\u0000');
-  return createHash('sha256').update(identity, 'utf8').digest('hex');
-}
-
-function normalizeDescription(value: string | null): string | null {
-  const normalized = value?.replace(/\s+/gu, ' ').trim() ?? '';
-  return normalized === '' ? null : normalized;
 }
 
 function isCanonicalUuid(value: string): boolean {

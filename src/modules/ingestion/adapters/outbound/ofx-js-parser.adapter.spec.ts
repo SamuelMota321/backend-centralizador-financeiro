@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { InvalidOfxFile } from '../../domain/ingestion.errors.js';
+import { UnsupportedOfxMediaType } from '../../domain/ingestion.errors.js';
 import { OfxJsParserAdapter } from './ofx-js-parser.adapter.js';
 
 const parser = new OfxJsParserAdapter();
@@ -87,7 +88,6 @@ describe('OfxJsParserAdapter', () => {
   });
 
   it.each([
-    ['PDF content', 'unsupported-pdf.pdf'],
     ['unsupported charset', 'unsupported-charset.ofx'],
     ['malformed OFX', 'malformed.ofx'],
   ])('rejects %s before yielding parsed rows', (_label, fixture) => {
@@ -95,6 +95,13 @@ describe('OfxJsParserAdapter', () => {
       new URL(`../../../../../test/fixtures/ofx/${fixture}`, import.meta.url),
     );
     expect(() => parser.parse(content)).toThrow(InvalidOfxFile);
+  });
+
+  it('rejects PDF content as an unsupported media type', () => {
+    const content = readFileSync(
+      new URL('../../../../../test/fixtures/ofx/unsupported-pdf.pdf', import.meta.url),
+    );
+    expect(() => parser.parse(content)).toThrow(UnsupportedOfxMediaType);
   });
 
   it('rejects invalid UTF-8, unknown transaction types, zero amounts and files over 10 MiB', () => {

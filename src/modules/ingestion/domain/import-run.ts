@@ -45,9 +45,11 @@ export class ImportRun {
   static createPreview(
     input: Readonly<{
       tenantId: string;
+      destinationAccountId: string;
       variant: OfxVariant;
       fileSizeBytes: number;
       contentSha256: string;
+      sourceObjectReference: string;
       totalItems: number;
       now: string;
     }>,
@@ -66,12 +68,12 @@ export class ImportRun {
     return new ImportRun({
       id: null,
       tenantId: input.tenantId,
-      destinationAccountId: null,
+      destinationAccountId: input.destinationAccountId,
       status: 'preview_ready',
       variant: input.variant,
       fileSizeBytes: input.fileSizeBytes,
       contentSha256: input.contentSha256,
-      sourceObjectReference: null,
+      sourceObjectReference: input.sourceObjectReference,
       totalItems: input.totalItems,
       importedItems: 0,
       ignoredItems: 0,
@@ -91,7 +93,7 @@ export class ImportRun {
     const allowedTransitions: Readonly<
       Record<ImportRunStatus, readonly ImportRunStatus[]>
     > = {
-      preview_ready: ['queued', 'failed', 'expired'],
+      preview_ready: ['queued', 'processing', 'failed', 'expired'],
       queued: ['processing', 'failed'],
       processing: ['completed', 'completed_with_errors', 'failed'],
       completed: [],
@@ -114,6 +116,41 @@ export class ImportRun {
       status: nextStatus,
       terminalAt: isTerminal ? timestamp : null,
       retentionExpiresAt: terminalDate?.toISOString() ?? null,
+      updatedAt: timestamp,
+    });
+  }
+
+  finish(
+    counts: Readonly<{
+      importedItems: number;
+      ignoredItems: number;
+      failedItems: number;
+    }>,
+    now: string,
+  ): ImportRun {
+    if (this.props.status !== 'processing') {
+      throw new InvalidImportRunTransition(
+        'Only a processing import run can be completed.',
+      );
+    }
+    const values = Object.values(counts);
+    if (
+      values.some((value) => !Number.isInteger(value) || value < 0) ||
+      values.reduce((total, value) => total + value, 0) !==
+        this.props.totalItems
+    ) {
+      throw new InvalidImportRunTransition('Import result counts are invalid.');
+    }
+
+    const timestamp = parseTimestamp(now);
+    const terminalDate = new Date(timestamp);
+    terminalDate.setUTCDate(terminalDate.getUTCDate() + 90);
+    return new ImportRun({
+      ...this.props,
+      ...counts,
+      status: counts.failedItems > 0 ? 'completed_with_errors' : 'completed',
+      terminalAt: timestamp,
+      retentionExpiresAt: terminalDate.toISOString(),
       updatedAt: timestamp,
     });
   }

@@ -34,4 +34,15 @@ describe('environment configuration', () => {
       }),
     ).toThrow();
   });
+
+  it('requires all R2 settings when any R2 setting is provided', () => {
+    expect(() =>
+      validateEnvironment({
+        DATABASE_URL: 'postgresql://runtime:secret@localhost:5432/cfi',
+        AUTH0_ISSUER_BASE_URL: 'https://tenant.example.com/',
+        AUTH0_AUDIENCE: 'https://api.example.com',
+        R2_ENDPOINT: 'https://account.r2.cloudflarestorage.com',
+      }),
+    ).toThrow();
+  });
 });
