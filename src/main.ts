@@ -13,6 +13,7 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: new ConsoleLogger({ json: true }),
     bodyParser: false,
+    rawBody: true,
   });
   app.useBodyParser('json');
   app.use(new RequestIdMiddleware().use);

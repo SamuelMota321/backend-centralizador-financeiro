@@ -6,6 +6,7 @@ DECLARE
   forced_count integer;
   policy_count integer;
   audit_owner name;
+  connections_owner name;
   import_runs_owner name;
   ingestion_items_owner name;
   runtime_is_safe boolean;
@@ -24,7 +25,8 @@ BEGIN
     'public.category_rules'::regclass,
     'public.idempotency_keys'::regclass,
     'public.import_runs'::regclass,
-    'public.ingestion_items'::regclass
+    'public.ingestion_items'::regclass,
+    'public.connections'::regclass
   )
   AND relrowsecurity;
 
@@ -41,7 +43,8 @@ BEGIN
     'public.category_rules'::regclass,
     'public.idempotency_keys'::regclass,
     'public.import_runs'::regclass,
-    'public.ingestion_items'::regclass
+    'public.ingestion_items'::regclass,
+    'public.connections'::regclass
   )
   AND relforcerowsecurity;
 
@@ -59,7 +62,8 @@ BEGIN
       'category_rules',
       'idempotency_keys',
       'import_runs',
-      'ingestion_items'
+      'ingestion_items',
+      'connections'
     );
 
   SELECT relowner::regrole INTO audit_owner
@@ -69,6 +73,10 @@ BEGIN
   SELECT relowner::regrole INTO import_runs_owner
   FROM pg_class
   WHERE oid = 'public.import_runs'::regclass;
+
+  SELECT relowner::regrole INTO connections_owner
+  FROM pg_class
+  WHERE oid = 'public.connections'::regclass;
 
   SELECT relowner::regrole INTO ingestion_items_owner
   FROM pg_class
@@ -86,7 +94,7 @@ BEGIN
   FROM pg_roles
   WHERE rolname = 'cfi_test';
 
-  IF enabled_count <> 11 OR forced_count <> 11 OR policy_count <> 42 THEN
+  IF enabled_count <> 12 OR forced_count <> 12 OR policy_count <> 45 THEN
     RAISE EXCEPTION 'RLS verification failed: enabled %, forced %, policies %',
       enabled_count, forced_count, policy_count;
   END IF;
@@ -96,6 +104,9 @@ BEGIN
   IF import_runs_owner <> 'cfi_owner' OR ingestion_items_owner <> 'cfi_owner' THEN
     RAISE EXCEPTION 'Ingestion table owners must be cfi_owner, got % and %',
       import_runs_owner, ingestion_items_owner;
+  END IF;
+  IF connections_owner <> 'cfi_owner' THEN
+    RAISE EXCEPTION 'connections owner must be cfi_owner, got %', connections_owner;
   END IF;
   IF NOT COALESCE(runtime_is_safe, false) OR NOT COALESCE(test_is_safe, false) THEN
     RAISE EXCEPTION 'runtime/test role security attributes are unsafe';
@@ -111,6 +122,16 @@ BEGIN
      OR has_table_privilege('cfi_test', 'public.audit_records', 'UPDATE')
      OR has_table_privilege('cfi_test', 'public.audit_records', 'DELETE') THEN
     RAISE EXCEPTION 'audit_records test grants are unsafe';
+  END IF;
+  IF NOT has_table_privilege('cfi_runtime', 'public.connections', 'SELECT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.connections', 'INSERT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.connections', 'UPDATE')
+     OR has_table_privilege('cfi_runtime', 'public.connections', 'DELETE')
+     OR NOT has_table_privilege('cfi_test', 'public.connections', 'SELECT')
+     OR NOT has_table_privilege('cfi_test', 'public.connections', 'INSERT')
+     OR NOT has_table_privilege('cfi_test', 'public.connections', 'UPDATE')
+     OR has_table_privilege('cfi_test', 'public.connections', 'DELETE') THEN
+    RAISE EXCEPTION 'connections grants are unsafe';
   END IF;
   IF NOT has_table_privilege('cfi_runtime', 'public.categories', 'SELECT')
      OR NOT has_table_privilege('cfi_runtime', 'public.categories', 'INSERT')
@@ -201,6 +222,20 @@ INSERT INTO public.audit_records (
   :'account_id_a'::uuid, 'success', gen_random_uuid(),
   '{"changedFields":["name"]}'::jsonb
 );
+INSERT INTO public.connections (
+  tenant_id, owner_user_id, provider, status
+) VALUES (
+  :'tenant_id_a'::uuid, :'user_id_a'::uuid, 'pluggy', 'pending_authorization'
+) RETURNING id AS connection_id_a \gset
+SELECT set_config('verify.connection_id_a', :'connection_id_a', false);
+INSERT INTO public.audit_records (
+  tenant_id, actor_user_id, action, resource_type, resource_id, outcome,
+  request_id, metadata
+) VALUES (
+  :'tenant_id_a'::uuid, :'user_id_a'::uuid, 'connection_lifecycle_updated',
+  'connection', :'connection_id_a'::uuid, 'success', gen_random_uuid(),
+  '{"stateTransition":"created_to_pending_authorization"}'::jsonb
+);
 INSERT INTO public.categories (tenant_id, name)
 VALUES (:'tenant_id_a'::uuid, 'RLS category')
 RETURNING id AS category_id_a \gset
@@ -241,6 +276,12 @@ INSERT INTO public.accounts (
   :'tenant_id_b'::uuid, 'RLS verification foreign resource', 'cash', '0.00', DATE '2026-09-01'
 ) RETURNING id AS account_id_b \gset
 SELECT set_config('verify.account_id_b', :'account_id_b', false);
+INSERT INTO public.connections (
+  tenant_id, owner_user_id, provider, status
+) VALUES (
+  :'tenant_id_b'::uuid, :'user_id_b'::uuid, 'pluggy', 'pending_authorization'
+) RETURNING id AS connection_id_b \gset
+SELECT set_config('verify.connection_id_b', :'connection_id_b', false);
 COMMIT;
 
 BEGIN;
@@ -248,6 +289,9 @@ SELECT set_config('app.current_tenant_id', :'tenant_id_a', true);
 SELECT count(*) AS own_account_count
 FROM public.accounts
 WHERE id = :'account_id_a'::uuid;
+SELECT count(*) AS own_connection_count
+FROM public.connections
+WHERE id = :'connection_id_a'::uuid;
 SELECT count(*) AS own_audit_count
 FROM public.audit_records
 WHERE resource_id = :'account_id_a'::uuid;
@@ -283,10 +327,31 @@ BEGIN
 END $$;
 DO $$
 BEGIN
+  IF (SELECT count(*) FROM public.connections
+      WHERE id = current_setting('verify.connection_id_a')::uuid) <> 1 THEN
+    RAISE EXCEPTION 'tenant cannot read its own connection';
+  END IF;
+END $$;
+DO $$
+BEGIN
   UPDATE public.accounts
   SET tenant_id = current_setting('verify.tenant_id_b')::uuid
   WHERE id = current_setting('verify.account_id_a')::uuid;
   RAISE EXCEPTION 'cross-tenant ownership update unexpectedly succeeded';
+EXCEPTION WHEN insufficient_privilege THEN
+  NULL;
+END $$;
+DO $$
+BEGIN
+  INSERT INTO public.connections (
+    tenant_id, owner_user_id, provider, status
+  ) VALUES (
+    current_setting('verify.tenant_id_a')::uuid,
+    current_setting('verify.user_id_b')::uuid,
+    'pluggy',
+    'pending_authorization'
+  );
+  RAISE EXCEPTION 'connection with a foreign owner unexpectedly succeeded';
 EXCEPTION WHEN insufficient_privilege THEN
   NULL;
 END $$;
@@ -297,6 +362,9 @@ SELECT set_config('app.current_tenant_id', :'tenant_id_b', true);
 SELECT count(*) AS foreign_account_count
 FROM public.accounts
 WHERE id = :'account_id_a'::uuid;
+SELECT count(*) AS foreign_connection_count
+FROM public.connections
+WHERE id = :'connection_id_a'::uuid;
 SELECT count(*) AS foreign_audit_count
 FROM public.audit_records
 WHERE resource_id = :'account_id_a'::uuid;
@@ -319,6 +387,7 @@ DO $$
 DECLARE
   run_count integer;
   item_count integer;
+  connection_count integer;
   affected_rows integer;
 BEGIN
   SELECT count(*) INTO run_count
@@ -327,7 +396,10 @@ BEGIN
   SELECT count(*) INTO item_count
   FROM public.ingestion_items
   WHERE id = current_setting('verify.ingestion_item_id_a')::uuid;
-  IF run_count <> 0 OR item_count <> 0 THEN
+  SELECT count(*) INTO connection_count
+  FROM public.connections
+  WHERE id = current_setting('verify.connection_id_a')::uuid;
+  IF run_count <> 0 OR item_count <> 0 OR connection_count <> 0 THEN
     RAISE EXCEPTION 'cross-tenant ingestion rows were visible';
   END IF;
 
@@ -400,6 +472,15 @@ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN
   NULL;
 END $$;
+DO $$
+BEGIN
+  UPDATE public.connections
+  SET status = 'disconnected'
+  WHERE id = current_setting('verify.connection_id_a')::uuid;
+  IF FOUND THEN
+    RAISE EXCEPTION 'cross-tenant connection update unexpectedly affected a row';
+  END IF;
+END $$;
 ROLLBACK;
 
 BEGIN;
@@ -417,6 +498,22 @@ BEGIN
     '{"changedFields":["name"]}'::jsonb
   );
   RAISE EXCEPTION 'audit insert with a foreign actor unexpectedly succeeded';
+EXCEPTION WHEN insufficient_privilege THEN
+  NULL;
+END $$;
+DO $$
+BEGIN
+  INSERT INTO public.audit_records (
+    tenant_id, actor_user_id, action, resource_type, resource_id, outcome,
+    request_id, metadata
+  ) VALUES (
+    current_setting('verify.tenant_id_a')::uuid,
+    current_setting('verify.user_id_a')::uuid,
+    'connection_lifecycle_updated', 'connection',
+    current_setting('verify.connection_id_b')::uuid, 'success', gen_random_uuid(),
+    '{"stateTransition":"created_to_pending_authorization"}'::jsonb
+  );
+  RAISE EXCEPTION 'audit insert with a foreign connection unexpectedly succeeded';
 EXCEPTION WHEN insufficient_privilege THEN
   NULL;
 END $$;

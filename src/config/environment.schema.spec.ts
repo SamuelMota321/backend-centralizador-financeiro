@@ -45,4 +45,15 @@ describe('environment configuration', () => {
       }),
     ).toThrow();
   });
+
+  it('requires the complete Pluggy and QStash integration configuration', () => {
+    expect(() =>
+      validateEnvironment({
+        DATABASE_URL: 'postgresql://runtime:secret@localhost:5432/cfi',
+        AUTH0_ISSUER_BASE_URL: 'https://tenant.example.com/',
+        AUTH0_AUDIENCE: 'https://api.example.com',
+        PLUGGY_CLIENT_ID: 'fixture-client-id',
+      }),
+    ).toThrow();
+  });
 });

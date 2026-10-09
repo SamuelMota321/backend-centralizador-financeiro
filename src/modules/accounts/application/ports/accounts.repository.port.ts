@@ -2,6 +2,7 @@ import type { TenantContext } from '../../../../shared/application/tenant-contex
 import type { Account, AccountSnapshot } from '../../domain/account.js';
 import type { AccountView, DuplicateCandidate } from '../account-view.js';
 import type { AuditWriter } from '../../../audit/application/ports/audit-writer.port.js';
+import type { TenantConnectionsRepository } from './connections.repository.port.js';
 
 export const ACCOUNTS_REPOSITORY = Symbol('ACCOUNTS_REPOSITORY');
 
@@ -20,6 +21,7 @@ export interface TenantAccountsRepository {
 
 export type AccountMaintenanceScope = Readonly<{
   accounts: TenantAccountsRepository;
+  connections: TenantConnectionsRepository;
   audit: AuditWriter;
 }>;
 

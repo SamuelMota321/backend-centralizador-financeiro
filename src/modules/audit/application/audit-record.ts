@@ -1,3 +1,8 @@
+import {
+  CONNECTION_STATUSES,
+  type ConnectionStatus,
+} from '../../accounts/domain/connection.js';
+
 const CANONICAL_UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -31,18 +36,27 @@ export type AuditAction =
   | 'category_rule_updated'
   | 'category_rule_activated'
   | 'category_rule_deactivated'
-  | 'category_rule_removed';
+  | 'category_rule_removed'
+  | 'connection_lifecycle_updated';
 export type AuditStateTransition = 'active_to_archived' | 'already_archived';
+type ConnectionAuditTransition = `${ConnectionStatus}_to_${ConnectionStatus}`;
 
 export type AuditMetadata =
   | Readonly<{ changedFields: readonly AuditChangedField[] }>
-  | Readonly<{ stateTransition: AuditStateTransition }>;
+  | Readonly<{
+      stateTransition:
+        | AuditStateTransition
+        | 'created_to_pending_authorization'
+        | 'consent_updated'
+        | ConnectionAuditTransition;
+    }>;
 
 export type AuditRecordProps = Readonly<{
   tenantId: string;
   actorUserId: string;
   action: AuditAction;
-  resourceType: 'account' | 'transaction' | 'category' | 'category_rule';
+  resourceType:
+    'account' | 'transaction' | 'category' | 'category_rule' | 'connection';
   resourceId: string;
   outcome: 'success';
   requestId: string;
@@ -91,6 +105,9 @@ function isResourceForAction(
   action: AuditAction,
   resourceType: AuditRecordProps['resourceType'],
 ): boolean {
+  if (action === 'connection_lifecycle_updated') {
+    return resourceType === 'connection';
+  }
   if (action === 'account_updated' || action === 'account_deactivated') {
     return resourceType === 'account';
   }
@@ -131,37 +148,54 @@ function isValidMetadata(
     if (!hasOnlyKey(metadata, 'changedFields')) return false;
     const allowedFields =
       action === 'account_updated'
-        ? ['name', 'type', 'institutionName', 'initialBalance', 'initialBalanceAsOf']
+        ? [
+            'name',
+            'type',
+            'institutionName',
+            'initialBalance',
+            'initialBalanceAsOf',
+          ]
         : action === 'transaction_created' || action === 'transfer_created'
           ? []
-        : action === 'transaction_category_updated'
-          ? ['categoryId', 'categorizationStatus', 'categorizationSource']
-          : action === 'category_created' || action === 'category_updated'
-            ? ['name']
-            : action === 'category_rule_activated' ||
-                action === 'category_rule_deactivated' ||
-                action === 'category_rule_removed'
-              ? ['status']
-              : [
-                  'categoryId',
-                  'conditionField',
-                  'conditionOperator',
-                  'conditionValue',
-                  'priority',
-                ];
+          : action === 'transaction_category_updated'
+            ? ['categoryId', 'categorizationStatus', 'categorizationSource']
+            : action === 'category_created' || action === 'category_updated'
+              ? ['name']
+              : action === 'category_rule_activated' ||
+                  action === 'category_rule_deactivated' ||
+                  action === 'category_rule_removed'
+                ? ['status']
+                : [
+                    'categoryId',
+                    'conditionField',
+                    'conditionOperator',
+                    'conditionValue',
+                    'priority',
+                  ];
     return metadata.changedFields.every((field) =>
       allowedFields.includes(field),
     );
   }
 
-  if (
-    action === 'account_deactivated' ||
-    action === 'category_archived'
-  ) {
+  if (action === 'account_deactivated' || action === 'category_archived') {
     if (!hasOnlyKey(metadata, 'stateTransition')) return false;
     return (
       metadata.stateTransition === 'active_to_archived' ||
       metadata.stateTransition === 'already_archived'
+    );
+  }
+
+  if (action === 'connection_lifecycle_updated') {
+    if (!hasOnlyKey(metadata, 'stateTransition')) return false;
+    if (metadata.stateTransition === 'created_to_pending_authorization') {
+      return true;
+    }
+    if (metadata.stateTransition === 'consent_updated') return true;
+    const [from, to] = metadata.stateTransition.split('_to_');
+    return (
+      from !== to &&
+      CONNECTION_STATUSES.includes(from as ConnectionStatus) &&
+      CONNECTION_STATUSES.includes(to as ConnectionStatus)
     );
   }
 

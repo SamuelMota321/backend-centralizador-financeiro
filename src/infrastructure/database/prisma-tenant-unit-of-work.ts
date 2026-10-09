@@ -3,6 +3,7 @@ import type { TenantUnitOfWork } from '../../shared/application/ports/tenant-uni
 import type { AccountMaintenanceScope } from '../../modules/accounts/application/ports/accounts.repository.port.js';
 import { PrismaAuditWriter } from '../../modules/audit/adapters/outbound/prisma-audit-writer.js';
 import { PrismaTenantAccountsRepository } from '../../modules/accounts/adapters/outbound/prisma-accounts.repository.js';
+import { PrismaTenantConnectionsRepository } from '../../modules/accounts/adapters/outbound/prisma-connections.repository.js';
 import type { TenantContext } from '../../shared/application/tenant-context.js';
 import { PrismaTenantTransaction } from './prisma-tenant-transaction.js';
 
@@ -17,6 +18,10 @@ export class PrismaTenantUnitOfWork implements TenantUnitOfWork<AccountMaintenan
     return this.tenantTransaction.run(context, async (transaction) =>
       operation({
         accounts: new PrismaTenantAccountsRepository(transaction, context),
+        connections: new PrismaTenantConnectionsRepository(
+          transaction,
+          context,
+        ),
         audit: new PrismaAuditWriter(transaction),
       }),
     );

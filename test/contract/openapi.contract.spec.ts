@@ -62,6 +62,45 @@ describe('OpenAPI contract', () => {
     }
   });
 
+  it('documents the authenticated Pluggy connection lifecycle and public webhook', () => {
+    const authenticatedOperations: Array<[string, string, string]> = [
+      ['/api/v1/connections/pluggy/sessions', 'post', '201'],
+      ['/api/v1/connections/pluggy/completions', 'post', '200'],
+      ['/api/v1/connections/{connectionId}', 'get', '200'],
+      ['/api/v1/connections/{connectionId}/disconnect', 'post', '200'],
+    ];
+
+    for (const [path, method, successStatus] of authenticatedOperations) {
+      const operation = document.paths?.[path]?.[method];
+      expect(operation, `${method.toUpperCase()} ${path}`).toBeDefined();
+      expect(operation?.security).toEqual([{ auth0: [] }]);
+      expect(operation?.responses).toHaveProperty(successStatus);
+      for (const [status, response] of Object.entries(
+        operation?.responses ?? {},
+      )) {
+        if (!/^[45]\d\d$/.test(status)) continue;
+        expect(response.content).toHaveProperty('application/problem+json');
+      }
+    }
+
+    const sessionSchema =
+      document.paths?.['/api/v1/connections/pluggy/sessions']?.post
+        ?.responses?.['201']?.content?.['application/json']?.schema;
+    expect(Object.keys(sessionSchema?.properties ?? {})).toEqual(
+      expect.arrayContaining(['connection', 'connectToken', 'expiresAt']),
+    );
+    expect(sessionSchema?.properties).not.toHaveProperty('clientId');
+    expect(sessionSchema?.properties).not.toHaveProperty('clientSecret');
+    expect(sessionSchema?.properties).not.toHaveProperty('apiKey');
+
+    const webhook = document.paths?.['/api/v1/webhooks/pluggy']?.post;
+    expect(webhook?.responses).toHaveProperty('202');
+    expect(webhook?.security).toBeUndefined();
+    expect(document.paths).not.toHaveProperty(
+      '/api/v1/internal/jobs/pluggy-events',
+    );
+  });
+
   it('does not expose hard-delete for accounts', () => {
     expect(document.paths?.['/api/v1/accounts/{accountId}']).not.toHaveProperty(
       'delete',

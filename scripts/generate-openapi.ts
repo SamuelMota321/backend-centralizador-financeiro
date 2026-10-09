@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { format } from 'prettier';
 import { HealthController } from '../src/health/health.controller.js';
 import { DatabaseSecurityCheckService } from '../src/infrastructure/database/database-security-check.service.js';
@@ -34,6 +35,12 @@ import {
   type AccessTokenVerifier,
 } from '../src/modules/identity/adapters/inbound/auth0-access-token-verifier.js';
 import { ResolveIdentityContext } from '../src/modules/identity/application/resolve-identity-context.js';
+import {
+  PluggyConnectionsController,
+  PluggyWebhookController,
+} from '../src/modules/accounts/adapters/inbound/pluggy-connections.controller.js';
+import { PluggyConnectionLifecycle } from '../src/modules/accounts/application/use-cases/pluggy-connection-lifecycle.js';
+import { QStashPluggyWebhookService } from '../src/modules/accounts/adapters/outbound/qstash-pluggy-webhook.service.js';
 
 const databaseSecurityCheck: Pick<
   DatabaseSecurityCheckService,
@@ -77,10 +84,7 @@ const listTransactions: Pick<ListTransactions, 'execute'> = {
     Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
 };
 
-const updateTransactionCategory: Pick<
-  UpdateTransactionCategory,
-  'execute'
-> = {
+const updateTransactionCategory: Pick<UpdateTransactionCategory, 'execute'> = {
   execute: () =>
     Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
 };
@@ -140,6 +144,32 @@ const getImportRun: Pick<GetImportRun, 'execute'> = {
     Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
 };
 
+const pluggyConnectionLifecycle: Pick<
+  PluggyConnectionLifecycle,
+  'start' | 'complete' | 'get' | 'disconnect' | 'processWebhook'
+> = {
+  start: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+  complete: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+  get: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+  disconnect: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+  processWebhook: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+};
+
+const qstashPluggyWebhookService: Pick<
+  QStashPluggyWebhookService,
+  'publish' | 'verify'
+> = {
+  publish: () =>
+    Promise.reject(new Error('OpenAPI generation does not queue webhooks.')),
+  verify: () =>
+    Promise.reject(new Error('OpenAPI generation does not verify webhooks.')),
+};
+
 const accessTokenVerifier: AccessTokenVerifier = {
   verify: () =>
     Promise.reject(new Error('OpenAPI generation does not verify tokens.')),
@@ -156,6 +186,8 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     AccountsController,
     TransactionsController,
     IngestionController,
+    PluggyConnectionsController,
+    PluggyWebhookController,
   ],
   providers: [
     {
@@ -181,6 +213,12 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     { provide: CreateOfxImportPreview, useValue: createOfxImportPreview },
     { provide: ConfirmOfxImport, useValue: confirmOfxImport },
     { provide: GetImportRun, useValue: getImportRun },
+    { provide: PluggyConnectionLifecycle, useValue: pluggyConnectionLifecycle },
+    {
+      provide: QStashPluggyWebhookService,
+      useValue: qstashPluggyWebhookService,
+    },
+    { provide: ConfigService, useValue: { get: () => undefined } },
     { provide: ACCESS_TOKEN_VERIFIER, useValue: accessTokenVerifier },
     { provide: ResolveIdentityContext, useValue: resolveIdentityContext },
   ],

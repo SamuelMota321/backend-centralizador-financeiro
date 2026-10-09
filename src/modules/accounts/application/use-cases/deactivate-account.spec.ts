@@ -10,6 +10,7 @@ import type {
   AccountMaintenanceScope,
   TenantAccountsRepository,
 } from '../ports/accounts.repository.port.js';
+import type { TenantConnectionsRepository } from '../ports/connections.repository.port.js';
 import { DeactivateAccount } from './deactivate-account.js';
 
 const context: TenantContext = {
@@ -64,7 +65,17 @@ function harness(current: AccountSnapshot) {
     deactivate,
   };
   const audit: AuditWriter = { write };
-  const scope: AccountMaintenanceScope = { accounts, audit };
+  const connections: TenantConnectionsRepository = {
+    createPending: () => Promise.reject(new Error('Not used by this test.')),
+    findOwnedById: () => Promise.resolve(null),
+    expireIfNeeded: () => Promise.resolve(null),
+    applyProviderState: () => Promise.resolve(null),
+    disconnect: () => Promise.resolve(null),
+    confirmProviderRevocation: () => Promise.resolve(null),
+    claimWebhook: () => Promise.resolve(false),
+    completeWebhook: () => Promise.resolve(),
+  };
+  const scope: AccountMaintenanceScope = { accounts, connections, audit };
   const unitOfWork: TenantUnitOfWork<AccountMaintenanceScope> = {
     run<Result>(
       _context: TenantContext,
@@ -136,12 +147,22 @@ describe('DeactivateAccount', () => {
       deactivate,
     };
     const audit: AuditWriter = { write };
+    const connections: TenantConnectionsRepository = {
+      createPending: () => Promise.reject(new Error('Not used by this test.')),
+      findOwnedById: () => Promise.resolve(null),
+      expireIfNeeded: () => Promise.resolve(null),
+      applyProviderState: () => Promise.resolve(null),
+      disconnect: () => Promise.resolve(null),
+      confirmProviderRevocation: () => Promise.resolve(null),
+      claimWebhook: () => Promise.resolve(false),
+      completeWebhook: () => Promise.resolve(),
+    };
     const unitOfWork: TenantUnitOfWork<AccountMaintenanceScope> = {
       run<Result>(
         _context: TenantContext,
         operation: (scope: AccountMaintenanceScope) => Promise<Result>,
       ): Promise<Result> {
-        return operation({ accounts, audit });
+        return operation({ accounts, connections, audit });
       },
     };
 

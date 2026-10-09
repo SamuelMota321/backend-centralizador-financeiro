@@ -14,6 +14,7 @@ import type {
   AccountMaintenanceScope,
   TenantAccountsRepository,
 } from '../ports/accounts.repository.port.js';
+import type { TenantConnectionsRepository } from '../ports/connections.repository.port.js';
 import { UpdateAccount } from './update-account.js';
 
 const context: TenantContext = {
@@ -74,7 +75,17 @@ function harness(
     deactivate: vi.fn(() => Promise.resolve(view)),
   };
   const audit: AuditWriter = { write };
-  const scope: AccountMaintenanceScope = { accounts, audit };
+  const connections: TenantConnectionsRepository = {
+    createPending: () => Promise.reject(new Error('Not used by this test.')),
+    findOwnedById: () => Promise.resolve(null),
+    expireIfNeeded: () => Promise.resolve(null),
+    applyProviderState: () => Promise.resolve(null),
+    disconnect: () => Promise.resolve(null),
+    confirmProviderRevocation: () => Promise.resolve(null),
+    claimWebhook: () => Promise.resolve(false),
+    completeWebhook: () => Promise.resolve(),
+  };
+  const scope: AccountMaintenanceScope = { accounts, connections, audit };
   const unitOfWork: TenantUnitOfWork<AccountMaintenanceScope> = {
     run<Result>(
       _context: TenantContext,
