@@ -264,6 +264,10 @@ Treat the following as high-risk operations:
 
 ---
 
+## Ponytail plan audit
+
+For any task that proposes code changes, load and apply the `ponytail` skill before presenting the plan. Audit reuse, scope, affected callers and tests, validation, and security or data-loss risks; report material findings in the plan. If the skill is unavailable, say so and apply these checks directly. This audit does not authorize implementation or replace the exact approval required below.
+
 ## 12. Mandatory Approval Gate
 
 ### Read-Only Phase
