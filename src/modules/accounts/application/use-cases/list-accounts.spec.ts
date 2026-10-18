@@ -36,6 +36,13 @@ function repositoryWith(total: number, items: AccountView[]) {
     findByIdForUpdate: vi.fn(() => Promise.resolve(null)),
     update: vi.fn(() => Promise.resolve(item)),
     deactivate: vi.fn(() => Promise.resolve(item)),
+    findByExternalIdentity: vi.fn(() => Promise.resolve(null)),
+    createConnected: vi.fn(() =>
+      Promise.reject(new Error('Not used by this test.')),
+    ),
+    associatePluggyAccount: vi.fn(() =>
+      Promise.reject(new Error('Not used by this test.')),
+    ),
   };
   const repository: AccountsRepository = {
     withTenant: async (_context, operation) => operation(tenantRepository),

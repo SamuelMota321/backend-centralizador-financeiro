@@ -23,6 +23,7 @@ import { DeactivateCategory } from './application/use-cases/deactivate-category.
 import { CategoryRuleLifecycle } from './application/use-cases/category-rule-lifecycle.js';
 import { GetTransaction } from './application/use-cases/get-transaction.js';
 import { ImportOfxTransaction } from './application/use-cases/import-ofx-transaction.js';
+import { ImportPluggyTransaction } from './application/use-cases/import-pluggy-transaction.js';
 import { FindOfxTransactionDuplicates } from './application/use-cases/find-ofx-transaction-duplicates.js';
 import { ListCategories } from './application/use-cases/list-categories.js';
 import { ListCategoryRules } from './application/use-cases/list-category-rules.js';
@@ -182,6 +183,17 @@ import {
       ],
     },
     {
+      provide: ImportPluggyTransaction,
+      useFactory: (
+        unitOfWork: TransactionsUnitOfWork,
+        accountState: TransactionAccountImportEligibilityReader,
+      ) => new ImportPluggyTransaction(unitOfWork, accountState),
+      inject: [
+        TRANSACTIONS_UNIT_OF_WORK,
+        TRANSACTION_ACCOUNT_IMPORT_ELIGIBILITY,
+      ],
+    },
+    {
       provide: FindOfxTransactionDuplicates,
       useFactory: (repository: TransactionsRepository) =>
         new FindOfxTransactionDuplicates(repository),
@@ -196,6 +208,7 @@ import {
     CreateCategoryRule,
     GetTransaction,
     ImportOfxTransaction,
+    ImportPluggyTransaction,
     FindOfxTransactionDuplicates,
     CreateManualTransaction,
     CreateAccountingTransfer,

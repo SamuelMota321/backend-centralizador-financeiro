@@ -118,6 +118,10 @@ function makeHarness(
     findByIdForUpdate: () => Promise.resolve(null),
     update: () => Promise.reject(new Error('Not used by this test.')),
     deactivate: () => Promise.reject(new Error('Not used by this test.')),
+    findByExternalIdentity: () => Promise.resolve(null),
+    createConnected: () => Promise.reject(new Error('Not used by this test.')),
+    associatePluggyAccount: () =>
+      Promise.reject(new Error('Not used by this test.')),
   };
   const scope: AccountMaintenanceScope = { accounts, connections, audit };
   const unitOfWork: TenantUnitOfWork<AccountMaintenanceScope> = {
@@ -156,6 +160,8 @@ function makeHarness(
     createConnectToken: providerCreateConnectToken,
     getItem: providerGetItem,
     listConsents: providerListConsents,
+    listAccounts: () => Promise.resolve({ accounts: [], totalPages: 0 }),
+    listTransactions: () => Promise.resolve({ transactions: [], next: null }),
     deleteItem: providerDeleteItem,
   };
   return {

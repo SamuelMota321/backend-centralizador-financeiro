@@ -73,6 +73,13 @@ function harness(
     findByIdForUpdate: vi.fn(() => Promise.resolve(current)),
     update,
     deactivate: vi.fn(() => Promise.resolve(view)),
+    findByExternalIdentity: vi.fn(() => Promise.resolve(null)),
+    createConnected: vi.fn(() =>
+      Promise.reject(new Error('Not used by this test.')),
+    ),
+    associatePluggyAccount: vi.fn(() =>
+      Promise.reject(new Error('Not used by this test.')),
+    ),
   };
   const audit: AuditWriter = { write };
   const connections: TenantConnectionsRepository = {

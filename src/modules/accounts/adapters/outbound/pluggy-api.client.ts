@@ -4,9 +4,12 @@ import { z } from 'zod';
 import type { Environment } from '../../../../config/environment.schema.js';
 import type {
   PluggyConnectToken,
+  PluggyAccountSnapshot,
+  PluggyAccountsPage,
   PluggyConsentSnapshot,
   PluggyItemSnapshot,
   PluggyProvider,
+  PluggyTransactionsPage,
 } from '../../application/ports/pluggy-provider.port.js';
 
 const PLUGGY_API_URL = 'https://api.pluggy.ai';
@@ -35,6 +38,33 @@ const consentResponseSchema = z.object({
 });
 const consentsResponseSchema = z.object({
   results: z.array(consentResponseSchema),
+});
+const accountResponseSchema = z.object({
+  id: z.string().uuid(),
+  type: z.string().min(1),
+  subtype: z.string().min(1),
+  name: z.string().min(1),
+  balance: z.number().finite(),
+  currencyCode: z.string().length(3),
+});
+const accountsResponseSchema = z.object({
+  page: z.number().int().positive(),
+  totalPages: z.number().int().nonnegative(),
+  results: z.array(accountResponseSchema),
+});
+const transactionResponseSchema = z.object({
+  id: z.string().uuid(),
+  accountId: z.string().uuid(),
+  amount: z.number().finite(),
+  date: z.iso.datetime(),
+  description: z.string().nullable().optional(),
+  type: z.enum(['CREDIT', 'DEBIT']),
+  status: z.string().min(1),
+  currencyCode: z.string().length(3),
+});
+const transactionsResponseSchema = z.object({
+  results: z.array(transactionResponseSchema),
+  next: z.string().nullable(),
 });
 
 export class PluggyUnavailable extends Error {
@@ -97,6 +127,49 @@ export class PluggyApiClient implements PluggyProvider {
       expiresAt: consent.expiresAt ? new Date(consent.expiresAt) : null,
       revokedAt: consent.revokedAt ? new Date(consent.revokedAt) : null,
     }));
+  }
+
+  async listAccounts(
+    itemId: string,
+    page: number,
+  ): Promise<PluggyAccountsPage> {
+    const query = new URLSearchParams({
+      itemId,
+      page: String(page),
+      pageSize: '500',
+    });
+    const body = await this.request(`/accounts?${query.toString()}`, {});
+    const parsed = accountsResponseSchema.safeParse(body);
+    if (!parsed.success) throw new PluggyUnavailable();
+    return {
+      totalPages: parsed.data.totalPages,
+      accounts: parsed.data.results.map(toPluggyAccountSnapshot),
+    };
+  }
+
+  async listTransactions(
+    accountId: string,
+    next: string | null,
+  ): Promise<PluggyTransactionsPage> {
+    const path = next
+      ? safeTransactionsNextPath(next)
+      : `/v2/transactions?${new URLSearchParams({ accountId }).toString()}`;
+    const body = await this.request(path, {});
+    const parsed = transactionsResponseSchema.safeParse(body);
+    if (!parsed.success) throw new PluggyUnavailable();
+    return {
+      next: parsed.data.next,
+      transactions: parsed.data.results.map((transaction) => ({
+        id: transaction.id,
+        accountId: transaction.accountId,
+        amount: String(transaction.amount),
+        date: transaction.date,
+        description: transaction.description ?? null,
+        type: transaction.type,
+        status: transaction.status,
+        currencyCode: transaction.currencyCode,
+      })),
+    };
   }
 
   async deleteItem(itemId: string): Promise<void> {
@@ -193,6 +266,31 @@ export class PluggyApiClient implements PluggyProvider {
       expiresAt: requestStartedAt + API_KEY_LIFETIME_MS,
     };
   }
+}
+
+function toPluggyAccountSnapshot(
+  account: z.infer<typeof accountResponseSchema>,
+): PluggyAccountSnapshot {
+  return {
+    id: account.id,
+    name: account.name,
+    type: account.type,
+    subtype: account.subtype,
+    balance: String(account.balance),
+    currencyCode: account.currencyCode,
+  };
+}
+
+function safeTransactionsNextPath(next: string): string {
+  if (!next.startsWith('?')) throw new PluggyUnavailable();
+  const parsed = new URL(next, `${PLUGGY_API_URL}/v2/transactions`);
+  if (
+    parsed.origin !== PLUGGY_API_URL ||
+    parsed.pathname !== '/v2/transactions'
+  ) {
+    throw new PluggyUnavailable();
+  }
+  return `${parsed.pathname}${parsed.search}`;
 }
 
 async function readJson(response: Response): Promise<unknown> {

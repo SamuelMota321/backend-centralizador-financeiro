@@ -139,13 +139,16 @@ try {
           'users',
           'identity_links',
           'accounts',
+          'connections',
           'audit_records',
           'categories',
           'transactions',
           'category_rules',
           'idempotency_keys',
           'import_runs',
-          'ingestion_items'
+          'ingestion_items',
+          'pluggy_initial_import_runs',
+          'pluggy_initial_import_accounts'
         )
       ORDER BY c.relname`,
   );
@@ -153,10 +156,10 @@ try {
     ({ owner, row_security, force_row_security }) =>
       owner !== 'cfi_owner' || !row_security || !force_row_security,
   );
-  if (protectedTables.rows.length !== 11 || unsafeTables.length > 0) {
+  if (protectedTables.rows.length !== 14 || unsafeTables.length > 0) {
     throw new Error(
       `Protected table verification failed: ${JSON.stringify({
-        expectedCount: 11,
+        expectedCount: 14,
         actualCount: protectedTables.rows.length,
         unsafeTables,
       })}`,

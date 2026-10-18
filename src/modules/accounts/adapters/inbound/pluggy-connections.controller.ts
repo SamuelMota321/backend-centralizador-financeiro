@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
   Headers,
   HttpCode,
   Param,
@@ -41,11 +40,9 @@ import { Auth0JwtGuard } from '../../../identity/adapters/inbound/auth0-jwt.guar
 import { PluggyConnectionLifecycle } from '../../application/use-cases/pluggy-connection-lifecycle.js';
 import {
   connectionIdSchema,
-  pluggyCompletionBodySchema,
   pluggyWebhookEventSchema,
 } from './connection-input.schema.js';
 import {
-  CONNECTION_COMPLETION_REQUEST_SCHEMA,
   CONNECTION_SESSION_SCHEMA,
   CONNECTION_VIEW_SCHEMA,
   PLUGGY_WEBHOOK_ACCEPTED_SCHEMA,
@@ -82,50 +79,6 @@ export class PluggyConnectionsController {
     @Req() request: RequestWithId,
   ) {
     return this.lifecycle.start(context, request.requestId);
-  }
-
-  @Post('pluggy/completions')
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Verify and record a completed Pluggy connection' })
-  @ApiBody({ schema: CONNECTION_COMPLETION_REQUEST_SCHEMA })
-  @ApiOkResponse({
-    schema: CONNECTION_VIEW_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiBadRequestResponse(PROBLEM_DETAILS_RESPONSE)
-  @ApiUnauthorizedResponse(PROBLEM_DETAILS_RESPONSE)
-  @ApiNotFoundResponse(PROBLEM_DETAILS_RESPONSE)
-  @ApiConflictResponse(PROBLEM_DETAILS_RESPONSE)
-  @ApiServiceUnavailableResponse(PROBLEM_DETAILS_RESPONSE)
-  @ApiInternalServerErrorResponse(PROBLEM_DETAILS_RESPONSE)
-  complete(
-    @CurrentTenantContext() context: TenantContext,
-    @Req() request: RequestWithId,
-    @Body() body: unknown,
-  ) {
-    const { itemId } = pluggyCompletionBodySchema.parse(body);
-    return this.lifecycle.complete(context, itemId, request.requestId);
-  }
-
-  @Get(':connectionId')
-  @ApiOperation({ summary: 'Get connection and consent state' })
-  @ApiParam({ name: 'connectionId', type: String, format: 'uuid' })
-  @ApiOkResponse({
-    schema: CONNECTION_VIEW_SCHEMA,
-    headers: REQUEST_ID_RESPONSE_HEADERS,
-  })
-  @ApiBadRequestResponse(PROBLEM_DETAILS_RESPONSE)
-  @ApiUnauthorizedResponse(PROBLEM_DETAILS_RESPONSE)
-  @ApiNotFoundResponse(PROBLEM_DETAILS_RESPONSE)
-  @ApiConflictResponse(PROBLEM_DETAILS_RESPONSE)
-  @ApiInternalServerErrorResponse(PROBLEM_DETAILS_RESPONSE)
-  get(
-    @CurrentTenantContext() context: TenantContext,
-    @Req() request: RequestWithId,
-    @Param('connectionId') rawConnectionId: string,
-  ) {
-    const connectionId = connectionIdSchema.parse(rawConnectionId);
-    return this.lifecycle.get(context, connectionId, request.requestId);
   }
 
   @Post(':connectionId/disconnect')

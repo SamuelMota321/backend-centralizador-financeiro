@@ -14,6 +14,7 @@ type OpenApiResponse = {
 
 type OpenApiOperation = {
   security?: Array<Record<string, string[]>>;
+  parameters?: Array<{ name?: string; required?: boolean }>;
   responses?: Record<string, OpenApiResponse>;
 };
 
@@ -65,9 +66,14 @@ describe('OpenAPI contract', () => {
   it('documents the authenticated Pluggy connection lifecycle and public webhook', () => {
     const authenticatedOperations: Array<[string, string, string]> = [
       ['/api/v1/connections/pluggy/sessions', 'post', '201'],
-      ['/api/v1/connections/pluggy/completions', 'post', '200'],
+      ['/api/v1/connections/pluggy/completions', 'post', '202'],
       ['/api/v1/connections/{connectionId}', 'get', '200'],
       ['/api/v1/connections/{connectionId}/disconnect', 'post', '200'],
+      [
+        '/api/v1/connections/{connectionId}/accounts/{providerAccountId}/mapping',
+        'put',
+        '200',
+      ],
     ];
 
     for (const [path, method, successStatus] of authenticatedOperations) {
@@ -92,6 +98,18 @@ describe('OpenAPI contract', () => {
     expect(sessionSchema?.properties).not.toHaveProperty('clientId');
     expect(sessionSchema?.properties).not.toHaveProperty('clientSecret');
     expect(sessionSchema?.properties).not.toHaveProperty('apiKey');
+
+    const completion =
+      document.paths?.['/api/v1/connections/pluggy/completions']?.post;
+    expect(completion?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'Idempotency-Key', required: true }),
+      ]),
+    );
+    expect(
+      completion?.responses?.['202']?.content?.['application/json']?.schema
+        ?.required,
+    ).toEqual(expect.arrayContaining(['connection', 'initialImport']));
 
     const webhook = document.paths?.['/api/v1/webhooks/pluggy']?.post;
     expect(webhook?.responses).toHaveProperty('202');

@@ -152,6 +152,29 @@ export class PluggyConnectionLifecycle {
     return toConnectionView(record);
   }
 
+  async getCollectionReference(
+    context: TenantContext,
+    connectionId: string,
+  ): Promise<Readonly<{
+    providerItemId: string;
+    consentProducts: readonly string[];
+    openFinancePermissionsGranted: readonly string[];
+  }> | null> {
+    assertTenantContext(context);
+    return this.unitOfWork.run(context, async ({ connections }) => {
+      const record = await connections.findOwnedById(
+        connectionId,
+        context.userId,
+      );
+      if (!record?.providerItemId) return null;
+      return {
+        providerItemId: record.providerItemId,
+        consentProducts: record.consentProducts,
+        openFinancePermissionsGranted: record.openFinancePermissionsGranted,
+      };
+    });
+  }
+
   async disconnect(
     context: TenantContext,
     connectionId: string,

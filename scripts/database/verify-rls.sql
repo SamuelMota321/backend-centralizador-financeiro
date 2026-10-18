@@ -9,6 +9,8 @@ DECLARE
   connections_owner name;
   import_runs_owner name;
   ingestion_items_owner name;
+  pluggy_import_runs_owner name;
+  pluggy_import_accounts_owner name;
   runtime_is_safe boolean;
   test_is_safe boolean;
 BEGIN
@@ -26,7 +28,9 @@ BEGIN
     'public.idempotency_keys'::regclass,
     'public.import_runs'::regclass,
     'public.ingestion_items'::regclass,
-    'public.connections'::regclass
+    'public.connections'::regclass,
+    'public.pluggy_initial_import_runs'::regclass,
+    'public.pluggy_initial_import_accounts'::regclass
   )
   AND relrowsecurity;
 
@@ -44,7 +48,9 @@ BEGIN
     'public.idempotency_keys'::regclass,
     'public.import_runs'::regclass,
     'public.ingestion_items'::regclass,
-    'public.connections'::regclass
+    'public.connections'::regclass,
+    'public.pluggy_initial_import_runs'::regclass,
+    'public.pluggy_initial_import_accounts'::regclass
   )
   AND relforcerowsecurity;
 
@@ -63,7 +69,9 @@ BEGIN
       'idempotency_keys',
       'import_runs',
       'ingestion_items',
-      'connections'
+      'connections',
+      'pluggy_initial_import_runs',
+      'pluggy_initial_import_accounts'
     );
 
   SELECT relowner::regrole INTO audit_owner
@@ -82,6 +90,14 @@ BEGIN
   FROM pg_class
   WHERE oid = 'public.ingestion_items'::regclass;
 
+  SELECT relowner::regrole INTO pluggy_import_runs_owner
+  FROM pg_class
+  WHERE oid = 'public.pluggy_initial_import_runs'::regclass;
+
+  SELECT relowner::regrole INTO pluggy_import_accounts_owner
+  FROM pg_class
+  WHERE oid = 'public.pluggy_initial_import_accounts'::regclass;
+
   SELECT (
     NOT rolsuper AND NOT rolbypassrls AND rolname = 'cfi_runtime'
   ) INTO runtime_is_safe
@@ -94,7 +110,7 @@ BEGIN
   FROM pg_roles
   WHERE rolname = 'cfi_test';
 
-  IF enabled_count <> 12 OR forced_count <> 12 OR policy_count <> 45 THEN
+  IF enabled_count <> 14 OR forced_count <> 14 OR policy_count <> 53 THEN
     RAISE EXCEPTION 'RLS verification failed: enabled %, forced %, policies %',
       enabled_count, forced_count, policy_count;
   END IF;
@@ -104,6 +120,11 @@ BEGIN
   IF import_runs_owner <> 'cfi_owner' OR ingestion_items_owner <> 'cfi_owner' THEN
     RAISE EXCEPTION 'Ingestion table owners must be cfi_owner, got % and %',
       import_runs_owner, ingestion_items_owner;
+  END IF;
+  IF pluggy_import_runs_owner <> 'cfi_owner'
+     OR pluggy_import_accounts_owner <> 'cfi_owner' THEN
+    RAISE EXCEPTION 'Pluggy ingestion table owners must be cfi_owner, got % and %',
+      pluggy_import_runs_owner, pluggy_import_accounts_owner;
   END IF;
   IF connections_owner <> 'cfi_owner' THEN
     RAISE EXCEPTION 'connections owner must be cfi_owner, got %', connections_owner;
@@ -156,7 +177,15 @@ BEGIN
      OR NOT has_table_privilege('cfi_runtime', 'public.ingestion_items', 'SELECT')
      OR NOT has_table_privilege('cfi_runtime', 'public.ingestion_items', 'INSERT')
      OR NOT has_table_privilege('cfi_runtime', 'public.ingestion_items', 'UPDATE')
-     OR has_table_privilege('cfi_runtime', 'public.ingestion_items', 'DELETE') THEN
+     OR has_table_privilege('cfi_runtime', 'public.ingestion_items', 'DELETE')
+     OR NOT has_table_privilege('cfi_runtime', 'public.pluggy_initial_import_runs', 'SELECT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.pluggy_initial_import_runs', 'INSERT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.pluggy_initial_import_runs', 'UPDATE')
+     OR has_table_privilege('cfi_runtime', 'public.pluggy_initial_import_runs', 'DELETE')
+     OR NOT has_table_privilege('cfi_runtime', 'public.pluggy_initial_import_accounts', 'SELECT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.pluggy_initial_import_accounts', 'INSERT')
+     OR NOT has_table_privilege('cfi_runtime', 'public.pluggy_initial_import_accounts', 'UPDATE')
+     OR has_table_privilege('cfi_runtime', 'public.pluggy_initial_import_accounts', 'DELETE') THEN
     RAISE EXCEPTION 'transactions runtime grants are unsafe';
   END IF;
   IF NOT has_table_privilege('cfi_test', 'public.categories', 'SELECT')
@@ -182,7 +211,15 @@ BEGIN
      OR NOT has_table_privilege('cfi_test', 'public.ingestion_items', 'SELECT')
      OR NOT has_table_privilege('cfi_test', 'public.ingestion_items', 'INSERT')
      OR NOT has_table_privilege('cfi_test', 'public.ingestion_items', 'UPDATE')
-     OR NOT has_table_privilege('cfi_test', 'public.ingestion_items', 'DELETE') THEN
+     OR NOT has_table_privilege('cfi_test', 'public.ingestion_items', 'DELETE')
+     OR NOT has_table_privilege('cfi_test', 'public.pluggy_initial_import_runs', 'SELECT')
+     OR NOT has_table_privilege('cfi_test', 'public.pluggy_initial_import_runs', 'INSERT')
+     OR NOT has_table_privilege('cfi_test', 'public.pluggy_initial_import_runs', 'UPDATE')
+     OR NOT has_table_privilege('cfi_test', 'public.pluggy_initial_import_runs', 'DELETE')
+     OR NOT has_table_privilege('cfi_test', 'public.pluggy_initial_import_accounts', 'SELECT')
+     OR NOT has_table_privilege('cfi_test', 'public.pluggy_initial_import_accounts', 'INSERT')
+     OR NOT has_table_privilege('cfi_test', 'public.pluggy_initial_import_accounts', 'UPDATE')
+     OR NOT has_table_privilege('cfi_test', 'public.pluggy_initial_import_accounts', 'DELETE') THEN
     RAISE EXCEPTION 'transactions test grants are unsafe';
   END IF;
 END $$;
@@ -260,6 +297,21 @@ INSERT INTO public.ingestion_items (
   :'tenant_id_a'::uuid, :'import_run_id_a'::uuid, 1, 'expense', '1.00', DATE '2026-09-20'
 ) RETURNING id AS ingestion_item_id_a \gset
 SELECT set_config('verify.ingestion_item_id_a', :'ingestion_item_id_a', false);
+INSERT INTO public.pluggy_initial_import_runs (
+  tenant_id, connection_id
+) VALUES (
+  :'tenant_id_a'::uuid, :'connection_id_a'::uuid
+) RETURNING id AS pluggy_import_run_id_a \gset
+SELECT set_config('verify.pluggy_import_run_id_a', :'pluggy_import_run_id_a', false);
+INSERT INTO public.pluggy_initial_import_accounts (
+  tenant_id, import_run_id, provider_account_id, name, account_type,
+  currency_code, balance, balance_as_of
+) VALUES (
+  :'tenant_id_a'::uuid, :'pluggy_import_run_id_a'::uuid,
+  '2fb7b8a2-6b42-4f3a-93e5-ec5ad426b3aa', 'RLS account fixture',
+  'checking', 'BRL', 0.00, DATE '2026-09-01'
+) RETURNING id AS pluggy_import_account_id_a \gset
+SELECT set_config('verify.pluggy_import_account_id_a', :'pluggy_import_account_id_a', false);
 INSERT INTO public.category_rules (
   tenant_id, category_id, condition_field, condition_operator, condition_value
 ) VALUES (
@@ -310,10 +362,18 @@ WHERE id = :'import_run_id_a'::uuid;
 SELECT count(*) AS own_ingestion_item_count
 FROM public.ingestion_items
 WHERE id = :'ingestion_item_id_a'::uuid;
+SELECT count(*) AS own_pluggy_import_run_count
+FROM public.pluggy_initial_import_runs
+WHERE id = :'pluggy_import_run_id_a'::uuid;
+SELECT count(*) AS own_pluggy_import_account_count
+FROM public.pluggy_initial_import_accounts
+WHERE id = :'pluggy_import_account_id_a'::uuid;
 DO $$
 DECLARE
   run_count integer;
   item_count integer;
+  pluggy_run_count integer;
+  pluggy_account_count integer;
 BEGIN
   SELECT count(*) INTO run_count
   FROM public.import_runs
@@ -321,7 +381,14 @@ BEGIN
   SELECT count(*) INTO item_count
   FROM public.ingestion_items
   WHERE id = current_setting('verify.ingestion_item_id_a')::uuid;
-  IF run_count <> 1 OR item_count <> 1 THEN
+  SELECT count(*) INTO pluggy_run_count
+  FROM public.pluggy_initial_import_runs
+  WHERE id = current_setting('verify.pluggy_import_run_id_a')::uuid;
+  SELECT count(*) INTO pluggy_account_count
+  FROM public.pluggy_initial_import_accounts
+  WHERE id = current_setting('verify.pluggy_import_account_id_a')::uuid;
+  IF run_count <> 1 OR item_count <> 1 OR pluggy_run_count <> 1
+     OR pluggy_account_count <> 1 THEN
     RAISE EXCEPTION 'tenant cannot read its own ingestion rows';
   END IF;
 END $$;
@@ -383,12 +450,20 @@ WHERE id = :'import_run_id_a'::uuid;
 SELECT count(*) AS foreign_ingestion_item_count
 FROM public.ingestion_items
 WHERE id = :'ingestion_item_id_a'::uuid;
+SELECT count(*) AS foreign_pluggy_import_run_count
+FROM public.pluggy_initial_import_runs
+WHERE id = :'pluggy_import_run_id_a'::uuid;
+SELECT count(*) AS foreign_pluggy_import_account_count
+FROM public.pluggy_initial_import_accounts
+WHERE id = :'pluggy_import_account_id_a'::uuid;
 DO $$
 DECLARE
   run_count integer;
   item_count integer;
   connection_count integer;
   affected_rows integer;
+  pluggy_run_count integer;
+  pluggy_account_count integer;
 BEGIN
   SELECT count(*) INTO run_count
   FROM public.import_runs
@@ -399,7 +474,14 @@ BEGIN
   SELECT count(*) INTO connection_count
   FROM public.connections
   WHERE id = current_setting('verify.connection_id_a')::uuid;
-  IF run_count <> 0 OR item_count <> 0 OR connection_count <> 0 THEN
+  SELECT count(*) INTO pluggy_run_count
+  FROM public.pluggy_initial_import_runs
+  WHERE id = current_setting('verify.pluggy_import_run_id_a')::uuid;
+  SELECT count(*) INTO pluggy_account_count
+  FROM public.pluggy_initial_import_accounts
+  WHERE id = current_setting('verify.pluggy_import_account_id_a')::uuid;
+  IF run_count <> 0 OR item_count <> 0 OR connection_count <> 0
+     OR pluggy_run_count <> 0 OR pluggy_account_count <> 0 THEN
     RAISE EXCEPTION 'cross-tenant ingestion rows were visible';
   END IF;
 
@@ -454,6 +536,20 @@ BEGIN
   GET DIAGNOSTICS affected_rows = ROW_COUNT;
   IF affected_rows <> 0 THEN
     RAISE EXCEPTION 'cross-tenant ingestion item update unexpectedly affected % rows', affected_rows;
+  END IF;
+  UPDATE public.pluggy_initial_import_runs
+  SET status = 'failed'
+  WHERE id = current_setting('verify.pluggy_import_run_id_a')::uuid;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant Pluggy import run update unexpectedly affected % rows', affected_rows;
+  END IF;
+  UPDATE public.pluggy_initial_import_accounts
+  SET mapping_status = 'unsupported', error_code = 'rls_test'
+  WHERE id = current_setting('verify.pluggy_import_account_id_a')::uuid;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant Pluggy import account update unexpectedly affected % rows', affected_rows;
   END IF;
 END $$;
 DO $$

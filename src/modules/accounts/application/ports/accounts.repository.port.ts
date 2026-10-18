@@ -17,6 +17,17 @@ export interface TenantAccountsRepository {
   findByIdForUpdate(accountId: string): Promise<AccountSnapshot | null>;
   update(accountId: string, account: Account): Promise<AccountView>;
   deactivate(accountId: string): Promise<AccountView>;
+  findByExternalIdentity(
+    provider: 'pluggy',
+    externalAccountId: string,
+  ): Promise<AccountView | null>;
+  createConnected(
+    account: Account,
+  ): Promise<{ account: AccountView; created: boolean }>;
+  associatePluggyAccount(
+    accountId: string,
+    externalAccountId: string,
+  ): Promise<AccountView>;
 }
 
 export type AccountMaintenanceScope = Readonly<{

@@ -27,6 +27,10 @@ import { DeactivateAccount } from './application/use-cases/deactivate-account.js
 import { ListAccounts } from './application/use-cases/list-accounts.js';
 import { UpdateAccount } from './application/use-cases/update-account.js';
 import {
+  AssociatePluggyAccount,
+  CreatePluggyConnectedAccount,
+} from './application/use-cases/pluggy-account-mapping.js';
+import {
   AccountsConnectionCollectionEligibility,
   PluggyConnectionLifecycle,
 } from './application/use-cases/pluggy-connection-lifecycle.js';
@@ -101,6 +105,18 @@ import {
       inject: [TENANT_UNIT_OF_WORK, PLUGGY_PROVIDER],
     },
     {
+      provide: CreatePluggyConnectedAccount,
+      useFactory: (unitOfWork: TenantUnitOfWork<AccountMaintenanceScope>) =>
+        new CreatePluggyConnectedAccount(unitOfWork),
+      inject: [TENANT_UNIT_OF_WORK],
+    },
+    {
+      provide: AssociatePluggyAccount,
+      useFactory: (unitOfWork: TenantUnitOfWork<AccountMaintenanceScope>) =>
+        new AssociatePluggyAccount(unitOfWork),
+      inject: [TENANT_UNIT_OF_WORK],
+    },
+    {
       provide: CONNECTIONS_COLLECTION_ELIGIBILITY,
       useFactory: (
         unitOfWork: TenantUnitOfWork<AccountMaintenanceScope>,
@@ -110,6 +126,14 @@ import {
       inject: [TENANT_UNIT_OF_WORK, PLUGGY_PROVIDER],
     },
   ],
-  exports: [ACCOUNT_OWNERSHIP, CONNECTIONS_COLLECTION_ELIGIBILITY],
+  exports: [
+    ACCOUNT_OWNERSHIP,
+    CONNECTIONS_COLLECTION_ELIGIBILITY,
+    PluggyConnectionLifecycle,
+    CreatePluggyConnectedAccount,
+    AssociatePluggyAccount,
+    PLUGGY_PROVIDER,
+    QStashPluggyWebhookService,
+  ],
 })
 export class AccountsModule {}

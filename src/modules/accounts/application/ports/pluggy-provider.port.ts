@@ -29,9 +29,44 @@ export type PluggyWebhookEvent = Readonly<{
   clientUserId: string;
 }>;
 
+export type PluggyAccountSnapshot = Readonly<{
+  id: string;
+  name: string;
+  type: string;
+  subtype: string;
+  balance: string;
+  currencyCode: string;
+}>;
+
+export type PluggyTransactionSnapshot = Readonly<{
+  id: string;
+  accountId: string;
+  amount: string;
+  date: string;
+  description: string | null;
+  type: 'CREDIT' | 'DEBIT';
+  status: string;
+  currencyCode: string;
+}>;
+
+export type PluggyAccountsPage = Readonly<{
+  accounts: readonly PluggyAccountSnapshot[];
+  totalPages: number;
+}>;
+
+export type PluggyTransactionsPage = Readonly<{
+  transactions: readonly PluggyTransactionSnapshot[];
+  next: string | null;
+}>;
+
 export interface PluggyProvider {
   createConnectToken(clientUserId: string): Promise<PluggyConnectToken>;
   getItem(itemId: string): Promise<PluggyItemSnapshot | null>;
   listConsents(itemId: string): Promise<readonly PluggyConsentSnapshot[]>;
+  listAccounts(itemId: string, page: number): Promise<PluggyAccountsPage>;
+  listTransactions(
+    accountId: string,
+    next: string | null,
+  ): Promise<PluggyTransactionsPage>;
   deleteItem(itemId: string): Promise<void>;
 }

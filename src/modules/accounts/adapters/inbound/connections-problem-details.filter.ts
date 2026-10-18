@@ -21,6 +21,11 @@ import {
   InvalidPluggyWebhook,
 } from '../../domain/connection.errors.js';
 import { IdentityContextUnavailable } from '../../../identity/domain/identity.errors.js';
+import {
+  PluggyInitialImportConflict,
+  PluggyInitialImportIdempotencyConflict,
+  PluggyInitialImportNotFound,
+} from '../../../ingestion/domain/pluggy-initial-import.errors.js';
 
 type ProblemDetails = Readonly<{
   type: 'about:blank';
@@ -87,7 +92,10 @@ function toProblemDetails(exception: unknown): ProblemDetails {
       'The authenticated identity cannot access a local context.',
     );
   }
-  if (exception instanceof ConnectionNotFound) {
+  if (
+    exception instanceof ConnectionNotFound ||
+    exception instanceof PluggyInitialImportNotFound
+  ) {
     return problem(
       404,
       'Connection not found',
@@ -98,7 +106,9 @@ function toProblemDetails(exception: unknown): ProblemDetails {
   if (
     exception instanceof ConnectionRequestConflict ||
     exception instanceof ConnectionAlreadyLinked ||
-    exception instanceof ConnectionWebhookReplayConflict
+    exception instanceof ConnectionWebhookReplayConflict ||
+    exception instanceof PluggyInitialImportConflict ||
+    exception instanceof PluggyInitialImportIdempotencyConflict
   ) {
     return problem(
       409,

@@ -41,6 +41,12 @@ import {
 } from '../src/modules/accounts/adapters/inbound/pluggy-connections.controller.js';
 import { PluggyConnectionLifecycle } from '../src/modules/accounts/application/use-cases/pluggy-connection-lifecycle.js';
 import { QStashPluggyWebhookService } from '../src/modules/accounts/adapters/outbound/qstash-pluggy-webhook.service.js';
+import { PluggyInitialImport } from '../src/modules/ingestion/application/use-cases/pluggy-initial-import.js';
+import { PLUGGY_INITIAL_IMPORT_SCHEMAS } from '../src/modules/ingestion/adapters/inbound/pluggy-initial-import-openapi.schema.js';
+import {
+  PluggyInitialImportController,
+  PluggyInitialImportWorkerController,
+} from '../src/modules/ingestion/adapters/inbound/pluggy-initial-import.controller.js';
 
 const databaseSecurityCheck: Pick<
   DatabaseSecurityCheckService,
@@ -162,12 +168,32 @@ const pluggyConnectionLifecycle: Pick<
 
 const qstashPluggyWebhookService: Pick<
   QStashPluggyWebhookService,
-  'publish' | 'verify'
+  'publish' | 'verify' | 'publishInitialImport' | 'verifyInitialImport'
 > = {
   publish: () =>
     Promise.reject(new Error('OpenAPI generation does not queue webhooks.')),
   verify: () =>
     Promise.reject(new Error('OpenAPI generation does not verify webhooks.')),
+  publishInitialImport: () =>
+    Promise.reject(new Error('OpenAPI generation does not queue imports.')),
+  verifyInitialImport: () =>
+    Promise.reject(
+      new Error('OpenAPI generation does not verify import jobs.'),
+    ),
+};
+
+const pluggyInitialImport: Pick<
+  PluggyInitialImport,
+  'complete' | 'get' | 'mapAccount' | 'processJob'
+> = {
+  complete: () =>
+    Promise.reject(new Error('OpenAPI generation does not start imports.')),
+  get: () =>
+    Promise.reject(new Error('OpenAPI generation does not read imports.')),
+  mapAccount: () =>
+    Promise.reject(new Error('OpenAPI generation does not map accounts.')),
+  processJob: () =>
+    Promise.reject(new Error('OpenAPI generation does not process jobs.')),
 };
 
 const accessTokenVerifier: AccessTokenVerifier = {
@@ -188,6 +214,8 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     IngestionController,
     PluggyConnectionsController,
     PluggyWebhookController,
+    PluggyInitialImportController,
+    PluggyInitialImportWorkerController,
   ],
   providers: [
     {
@@ -218,6 +246,7 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
       provide: QStashPluggyWebhookService,
       useValue: qstashPluggyWebhookService,
     },
+    { provide: PluggyInitialImport, useValue: pluggyInitialImport },
     { provide: ConfigService, useValue: { get: () => undefined } },
     { provide: ACCESS_TOKEN_VERIFIER, useValue: accessTokenVerifier },
     { provide: ResolveIdentityContext, useValue: resolveIdentityContext },
@@ -248,6 +277,7 @@ document.components = {
   schemas: {
     ...(document.components?.schemas ?? {}),
     ...TRANSACTIONS_OPENAPI_SCHEMAS,
+    ...PLUGGY_INITIAL_IMPORT_SCHEMAS,
   },
 };
 const serializedDocument = await format(JSON.stringify(document), {

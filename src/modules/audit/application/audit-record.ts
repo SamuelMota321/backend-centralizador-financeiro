@@ -38,7 +38,11 @@ export type AuditAction =
   | 'category_rule_deactivated'
   | 'category_rule_removed'
   | 'connection_lifecycle_updated';
-export type AuditStateTransition = 'active_to_archived' | 'already_archived';
+export type AuditStateTransition =
+  | 'active_to_archived'
+  | 'already_archived'
+  | 'pluggy_account_created'
+  | 'pluggy_account_linked';
 type ConnectionAuditTransition = `${ConnectionStatus}_to_${ConnectionStatus}`;
 
 export type AuditMetadata =
@@ -191,6 +195,12 @@ function isValidMetadata(
       return true;
     }
     if (metadata.stateTransition === 'consent_updated') return true;
+    if (
+      metadata.stateTransition === 'pluggy_account_created' ||
+      metadata.stateTransition === 'pluggy_account_linked'
+    ) {
+      return true;
+    }
     const [from, to] = metadata.stateTransition.split('_to_');
     return (
       from !== to &&

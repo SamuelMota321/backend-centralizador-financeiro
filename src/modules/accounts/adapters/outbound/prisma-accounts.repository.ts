@@ -15,7 +15,7 @@ import type {
   TenantAccountsRepository,
 } from '../../application/ports/accounts.repository.port.js';
 import { AccountHasActiveCategoryRules } from '../../application/accounts.errors.js';
-import type { Account, AccountSnapshot } from '../../domain/account.js';
+import { Account, type AccountSnapshot } from '../../domain/account.js';
 import type { AccountType } from '../../domain/account-type.js';
 import { AccountNotFound } from '../../domain/account.errors.js';
 
@@ -173,6 +173,83 @@ export class PrismaTenantAccountsRepository implements TenantAccountsRepository 
       select: accountSelect,
     });
     return toAccountView(record);
+  }
+
+  async findByExternalIdentity(
+    provider: 'pluggy',
+    externalAccountId: string,
+  ): Promise<AccountView | null> {
+    const record = await this.transaction.account.findFirst({
+      where: {
+        tenantId: this.context.tenantId,
+        externalProvider: 'PLUGGY',
+        externalAccountId,
+      },
+      select: accountSelect,
+    });
+    return record ? toAccountView(record) : null;
+  }
+
+  async createConnected(
+    account: Account,
+  ): Promise<{ account: AccountView; created: boolean }> {
+    const externalProvider = account.props.externalProvider;
+    const externalAccountId = account.props.externalAccountId;
+    if (!externalProvider || !externalAccountId) {
+      throw new Error('A connected account needs an external identity.');
+    }
+    const existing = await this.transaction.account.findFirst({
+      where: {
+        tenantId: this.context.tenantId,
+        externalProvider: 'PLUGGY',
+        externalAccountId,
+      },
+      select: accountSelect,
+    });
+    if (existing) return { account: toAccountView(existing), created: false };
+
+    const record = await this.transaction.account.create({
+      data: {
+        tenantId: this.context.tenantId,
+        name: account.props.name,
+        type: TO_PRISMA_TYPE[account.props.type],
+        origin: PrismaAccountOrigin.CONNECTED,
+        institutionName: account.props.institutionName,
+        initialBalance: account.props.initialBalance.toDecimal(),
+        initialBalanceAsOf: new Date(
+          `${account.props.initialBalanceAsOf.value}T00:00:00.000Z`,
+        ),
+        currencyCode: account.props.currencyCode,
+        externalProvider: 'PLUGGY',
+        externalAccountId,
+      },
+      select: accountSelect,
+    });
+    return { account: toAccountView(record), created: true };
+  }
+
+  async associatePluggyAccount(
+    accountId: string,
+    externalAccountId: string,
+  ): Promise<AccountView> {
+    const snapshot = await this.findByIdForUpdate(accountId);
+    if (!snapshot) throw new AccountNotFound('Account was not found.');
+    const associated =
+      Account.reconstitute(snapshot).associatePluggyAccount(externalAccountId);
+    const result = await this.transaction.account.updateMany({
+      where: { id: accountId, tenantId: this.context.tenantId },
+      data: {
+        origin:
+          associated.props.origin === 'manual'
+            ? PrismaAccountOrigin.MANUAL
+            : PrismaAccountOrigin.CONNECTED,
+        externalProvider:
+          associated.props.externalProvider === 'pluggy' ? 'PLUGGY' : null,
+        externalAccountId: associated.props.externalAccountId,
+      },
+    });
+    if (result.count !== 1) throw new AccountNotFound('Account was not found.');
+    return this.findView(accountId);
   }
 
   countActive(): Promise<number> {

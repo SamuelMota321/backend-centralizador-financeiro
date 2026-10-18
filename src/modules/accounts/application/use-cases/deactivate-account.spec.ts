@@ -63,6 +63,13 @@ function harness(current: AccountSnapshot) {
     findByIdForUpdate: vi.fn(() => Promise.resolve(current)),
     update: vi.fn(() => Promise.resolve(view)),
     deactivate,
+    findByExternalIdentity: vi.fn(() => Promise.resolve(null)),
+    createConnected: vi.fn(() =>
+      Promise.reject(new Error('Not used by this test.')),
+    ),
+    associatePluggyAccount: vi.fn(() =>
+      Promise.reject(new Error('Not used by this test.')),
+    ),
   };
   const audit: AuditWriter = { write };
   const connections: TenantConnectionsRepository = {
@@ -145,6 +152,13 @@ describe('DeactivateAccount', () => {
       findByIdForUpdate: vi.fn(() => Promise.resolve(snapshot)),
       update: vi.fn(() => Promise.resolve(view)),
       deactivate,
+      findByExternalIdentity: vi.fn(() => Promise.resolve(null)),
+      createConnected: vi.fn(() =>
+        Promise.reject(new Error('Not used by this test.')),
+      ),
+      associatePluggyAccount: vi.fn(() =>
+        Promise.reject(new Error('Not used by this test.')),
+      ),
     };
     const audit: AuditWriter = { write };
     const connections: TenantConnectionsRepository = {

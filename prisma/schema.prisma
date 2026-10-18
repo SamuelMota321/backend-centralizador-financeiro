@@ -97,6 +97,34 @@ enum ImportRunStatus {
   @@map("import_run_status")
 }
 
+enum PluggyInitialImportStatus {
+  QUEUED                  @map("queued")
+  PROCESSING               @map("processing")
+  AWAITING_ACCOUNT_MAPPING @map("awaiting_account_mapping")
+  COMPLETED                @map("completed")
+  COMPLETED_WITH_ERRORS    @map("completed_with_errors")
+  FAILED                   @map("failed")
+
+  @@map("pluggy_initial_import_status")
+}
+
+enum ProviderDataAvailability {
+  PENDING     @map("pending")
+  AVAILABLE   @map("available")
+  UNAVAILABLE @map("unavailable")
+  FAILED      @map("failed")
+
+  @@map("provider_data_availability")
+}
+
+enum PluggyAccountMappingStatus {
+  PENDING     @map("pending")
+  MAPPED      @map("mapped")
+  UNSUPPORTED @map("unsupported")
+
+  @@map("pluggy_account_mapping_status")
+}
+
 enum IngestionItemStatus {
   PREVIEWED         @map("previewed")
   IMPORTED          @map("imported")
@@ -223,6 +251,8 @@ model Tenant {
   categoryRules CategoryRule[]
   auditRecords AuditRecord[]
   connections   FinancialConnection[]
+  pluggyInitialImportRuns PluggyInitialImportRun[]
+  pluggyInitialImportAccounts PluggyInitialImportAccount[]
   idempotencyKeys IdempotencyKey[]
 
   @@map("tenants")
@@ -274,7 +304,9 @@ model Account {
   tenant             Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "accounts_tenant_id_fkey")
   transactions       Transaction[]
   importRuns         ImportRun[]
+  pluggyInitialImportMappings PluggyInitialImportAccount[]
 
+  @@unique([tenantId, id], map: "accounts_tenant_id_id_key")
   @@unique([tenantId, externalProvider, externalAccountId], map: "accounts_external_identity_key")
   @@index([tenantId, archivedAt], map: "accounts_tenant_id_archived_at_idx")
   @@index([tenantId, type], map: "accounts_tenant_id_type_idx")
@@ -299,7 +331,9 @@ model FinancialConnection {
   updatedAt                     DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant                        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "connections_tenant_id_fkey")
   ownerUser                     User               @relation(fields: [ownerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "connections_owner_user_id_fkey")
+  pluggyInitialImportRuns       PluggyInitialImportRun[]
 
+  @@unique([tenantId, id], map: "connections_tenant_id_id_key")
   @@index([tenantId, ownerUserId, status], map: "connections_tenant_owner_status_idx")
   @@map("connections")
 }
@@ -358,6 +392,60 @@ model ImportRun {
   @@index([tenantId, status, createdAt, id], map: "import_runs_tenant_status_created_at_id_idx")
   @@index([tenantId, retentionExpiresAt], map: "import_runs_tenant_retention_expires_at_idx")
   @@map("import_runs")
+}
+
+model PluggyInitialImportRun {
+  id                       String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                 String                       @map("tenant_id") @db.Uuid
+  connectionId             String                       @map("connection_id") @db.Uuid
+  status                   PluggyInitialImportStatus    @default(QUEUED)
+  accountsAvailability     ProviderDataAvailability    @default(PENDING) @map("accounts_availability")
+  transactionsAvailability ProviderDataAvailability    @default(PENDING) @map("transactions_availability")
+  accountsErrorCode        String?                      @map("accounts_error_code") @db.VarChar(100)
+  transactionsErrorCode    String?                      @map("transactions_error_code") @db.VarChar(100)
+  totalAccounts            Int                          @default(0) @map("total_accounts")
+  mappedAccounts           Int                          @default(0) @map("mapped_accounts")
+  totalTransactions        Int                          @default(0) @map("total_transactions")
+  importedTransactions     Int                          @default(0) @map("imported_transactions")
+  ignoredTransactions      Int                          @default(0) @map("ignored_transactions")
+  failedTransactions      Int                          @default(0) @map("failed_transactions")
+  terminalAt               DateTime?                    @map("terminal_at") @db.Timestamptz(3)
+  retentionExpiresAt       DateTime?                    @map("retention_expires_at") @db.Timestamptz(3)
+  createdAt                DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                   Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "pluggy_initial_import_runs_tenant_id_fkey")
+  connection               FinancialConnection          @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "pluggy_initial_import_runs_connection_tenant_fkey")
+  accounts                 PluggyInitialImportAccount[]
+
+  @@unique([tenantId, id], map: "pluggy_initial_import_runs_tenant_id_id_key")
+  @@unique([tenantId, connectionId], map: "pluggy_initial_import_runs_tenant_connection_key")
+  @@index([tenantId, status, createdAt], map: "pluggy_initial_import_runs_tenant_status_created_at_idx")
+  @@map("pluggy_initial_import_runs")
+}
+
+model PluggyInitialImportAccount {
+  id                 String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                       @map("tenant_id") @db.Uuid
+  importRunId        String                       @map("import_run_id") @db.Uuid
+  providerAccountId  String                       @map("provider_account_id") @db.Uuid
+  name               String                       @db.VarChar(100)
+  accountType        AccountType?                 @map("account_type")
+  currencyCode       String                       @map("currency_code") @db.VarChar(3)
+  balance            Decimal?                     @db.Decimal(19, 2)
+  balanceAsOf        DateTime?                    @map("balance_as_of") @db.Date
+  mappingStatus      PluggyAccountMappingStatus   @default(PENDING) @map("mapping_status")
+  errorCode          String?                      @map("error_code") @db.VarChar(100)
+  mappedAccountId    String?                      @map("mapped_account_id") @db.Uuid
+  createdAt          DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "pluggy_initial_import_accounts_tenant_id_fkey")
+  importRun          PluggyInitialImportRun       @relation(fields: [tenantId, importRunId], references: [tenantId, id], onDelete: Cascade, onUpdate: Restrict, map: "pluggy_initial_import_accounts_run_tenant_fkey")
+  mappedAccount      Account?                     @relation(fields: [tenantId, mappedAccountId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "pluggy_initial_import_accounts_mapped_account_tenant_fkey")
+
+  @@unique([tenantId, id], map: "pluggy_initial_import_accounts_tenant_id_id_key")
+  @@unique([tenantId, importRunId, providerAccountId], map: "pluggy_initial_import_accounts_tenant_run_provider_key")
+  @@index([tenantId, importRunId, mappingStatus], map: "pluggy_initial_import_accounts_tenant_run_status_idx")
+  @@map("pluggy_initial_import_accounts")
 }
 
 model IngestionItem {

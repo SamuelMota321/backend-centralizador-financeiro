@@ -37,6 +37,17 @@ export type CreateAccountProps = Readonly<{
   initialBalanceAsOf: string;
 }>;
 
+export type CreateConnectedAccountProps = Readonly<{
+  tenantId: string;
+  name: string;
+  type: AccountType;
+  institutionName?: string | null;
+  initialBalance: string;
+  initialBalanceAsOf: string;
+  externalProvider: AccountExternalProvider;
+  externalAccountId: string;
+}>;
+
 export type AccountSnapshot = Readonly<{
   id: string;
   tenantId: string;
@@ -84,6 +95,55 @@ export class Account {
       externalProvider: null,
       externalAccountId: null,
     });
+  }
+
+  static createConnected(input: CreateConnectedAccountProps): Account {
+    if (!input.externalAccountId.trim()) {
+      throw new InvalidAccountState(
+        'A connected account needs an external ID.',
+      );
+    }
+    return new Account({
+      tenantId: input.tenantId,
+      name: normalizeAccountName(input.name),
+      type: parseAccountType(input.type),
+      origin: 'connected',
+      institutionName: normalizeInstitution(input.institutionName),
+      initialBalance: Money.fromDecimal(input.initialBalance),
+      initialBalanceAsOf: BalanceReferenceDate.create(input.initialBalanceAsOf),
+      currencyCode: 'BRL',
+      externalProvider: input.externalProvider,
+      externalAccountId: input.externalAccountId,
+    });
+  }
+
+  associatePluggyAccount(externalAccountId: string): Account {
+    if (!this.snapshot || this.snapshot.archivedAt !== null) {
+      throw new AccountArchived('Archived accounts cannot be connected.');
+    }
+    if (
+      this.props.origin === 'connected' &&
+      (this.props.externalProvider !== 'pluggy' ||
+        this.props.externalAccountId !== externalAccountId)
+    ) {
+      throw new InvalidAccountState(
+        'The account is already associated with another provider account.',
+      );
+    }
+    return new Account(
+      {
+        ...this.props,
+        origin: 'connected',
+        externalProvider: 'pluggy',
+        externalAccountId,
+      },
+      {
+        ...this.snapshot,
+        origin: 'connected',
+        externalProvider: 'pluggy',
+        externalAccountId,
+      },
+    );
   }
 
   static reconstitute(input: AccountSnapshot): Account {

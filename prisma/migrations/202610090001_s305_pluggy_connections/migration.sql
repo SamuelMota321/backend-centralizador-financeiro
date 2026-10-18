@@ -110,28 +110,28 @@ CREATE POLICY audit_records_insert_own ON public.audit_records
       WHERE actor.id = audit_records.actor_user_id
         AND actor.tenant_id = audit_records.tenant_id
     )
-    AND CASE resource_type
-      WHEN 'account'::public.audit_resource_type THEN EXISTS (
+    AND CASE resource_type::text
+      WHEN 'account' THEN EXISTS (
         SELECT 1 FROM public.accounts AS resource
         WHERE resource.id = audit_records.resource_id
           AND resource.tenant_id = audit_records.tenant_id
       )
-      WHEN 'transaction'::public.audit_resource_type THEN EXISTS (
+      WHEN 'transaction' THEN EXISTS (
         SELECT 1 FROM public.transactions AS resource
         WHERE resource.id = audit_records.resource_id
           AND resource.tenant_id = audit_records.tenant_id
       )
-      WHEN 'category'::public.audit_resource_type THEN EXISTS (
+      WHEN 'category' THEN EXISTS (
         SELECT 1 FROM public.categories AS resource
         WHERE resource.id = audit_records.resource_id
           AND resource.tenant_id = audit_records.tenant_id
       )
-      WHEN 'category_rule'::public.audit_resource_type THEN EXISTS (
+      WHEN 'category_rule' THEN EXISTS (
         SELECT 1 FROM public.category_rules AS resource
         WHERE resource.id = audit_records.resource_id
           AND resource.tenant_id = audit_records.tenant_id
       )
-      WHEN 'connection'::public.audit_resource_type THEN EXISTS (
+      WHEN 'connection' THEN EXISTS (
         SELECT 1 FROM public.connections AS resource
         WHERE resource.id = audit_records.resource_id
           AND resource.tenant_id = audit_records.tenant_id
