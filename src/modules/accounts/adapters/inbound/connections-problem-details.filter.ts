@@ -60,6 +60,7 @@ export class ConnectionsProblemDetailsFilter implements ExceptionFilter {
           ? {
               name: exception.name,
               code: exception.code,
+              postgresSqlState: getPostgresSqlState(exception),
               meta: Object.fromEntries(
                 Object.entries(exception.meta ?? {}).filter(([key, value]) =>
                   key === 'code'
@@ -82,6 +83,16 @@ export class ConnectionsProblemDetailsFilter implements ExceptionFilter {
       this.logger.error(JSON.stringify(details));
     }
   }
+}
+
+function getPostgresSqlState(
+  exception: Prisma.PrismaClientKnownRequestError,
+): string | undefined {
+  const metaCode = exception.meta?.code;
+  if (typeof metaCode === 'string' && /^[A-Z0-9]{5}$/.test(metaCode)) {
+    return metaCode;
+  }
+  return exception.message.match(/\bCode:\s*`?([A-Z0-9]{5})`?(?:\.|\s|$)/)?.[1];
 }
 
 function toProblemDetails(exception: unknown): ProblemDetails {
