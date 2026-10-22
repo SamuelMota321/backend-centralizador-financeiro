@@ -61,15 +61,17 @@ export class ConnectionsProblemDetailsFilter implements ExceptionFilter {
               name: exception.name,
               code: exception.code,
               meta: Object.fromEntries(
-                Object.entries(exception.meta ?? {}).filter(([key]) =>
-                  [
-                    'modelName',
-                    'target',
-                    'field_name',
-                    'constraint',
-                    'table',
-                    'column',
-                  ].includes(key),
+                Object.entries(exception.meta ?? {}).filter(([key, value]) =>
+                  key === 'code'
+                    ? typeof value === 'string' && /^[A-Z0-9]{5}$/.test(value)
+                    : [
+                        'modelName',
+                        'target',
+                        'field_name',
+                        'constraint',
+                        'table',
+                        'column',
+                      ].includes(key),
                 ),
               ),
             }
