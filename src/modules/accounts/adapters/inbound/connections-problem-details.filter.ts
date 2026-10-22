@@ -8,6 +8,7 @@ import {
   type ExceptionFilter,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { Prisma } from '../../../../generated/prisma/client.js';
 import { ZodError } from 'zod';
 import { PluggyUnavailable } from '../outbound/pluggy-api.client.js';
 import { QStashUnavailable } from '../outbound/qstash-pluggy-webhook.service.js';
@@ -54,9 +55,29 @@ export class ConnectionsProblemDetailsFilter implements ExceptionFilter {
       .type('application/problem+json')
       .json(problem);
     if (problem.status === 500) {
-      this.logger.error(
-        exception instanceof Error ? exception.name : 'Unknown error',
-      );
+      const details =
+        exception instanceof Prisma.PrismaClientKnownRequestError
+          ? {
+              name: exception.name,
+              code: exception.code,
+              meta: Object.fromEntries(
+                Object.entries(exception.meta ?? {}).filter(([key]) =>
+                  [
+                    'modelName',
+                    'target',
+                    'field_name',
+                    'constraint',
+                    'table',
+                    'column',
+                  ].includes(key),
+                ),
+              ),
+            }
+          : {
+              name:
+                exception instanceof Error ? exception.name : 'Unknown error',
+            };
+      this.logger.error(JSON.stringify(details));
     }
   }
 }
