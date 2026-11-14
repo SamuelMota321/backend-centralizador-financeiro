@@ -211,8 +211,11 @@ function createHarness(options: {
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
   };
+  const completeConnection = vi.fn(() => Promise.resolve(connection));
+  const getConnection = vi.fn(() => Promise.resolve(connection));
   const lifecycle = {
-    get: vi.fn(() => Promise.resolve(connection)),
+    complete: completeConnection,
+    get: getConnection,
     getCollectionReference: vi.fn(() =>
       Promise.resolve({
         providerItemId: itemId,
@@ -274,6 +277,11 @@ function createHarness(options: {
 
   return {
     initialImport,
+    repository,
+    lifecycle,
+    queue,
+    completeConnection,
+    getConnection,
     listAccounts,
     listTransactions,
     importTransactionExecute,
@@ -285,6 +293,44 @@ function createHarness(options: {
 }
 
 describe('Pluggy initial import', () => {
+  it('returns the same connection and run on a completed-key replay', async () => {
+    const harness = createHarness({
+      products: ['ACCOUNTS'],
+      providerAccounts: [],
+    });
+    const reservation = vi
+      .spyOn(harness.repository, 'reserveStart')
+      .mockResolvedValueOnce({
+        claimId: '564aa078-983d-4f3d-a28e-fb5575ddc3ee',
+        replayRunId: null,
+      })
+      .mockResolvedValueOnce({ claimId: null, replayRunId: runId });
+    const key = '664aa078-983d-4f3d-a28e-fb5575ddc3ee';
+
+    const first = await harness.initialImport.complete(
+      context,
+      itemId,
+      key,
+      'request-1',
+    );
+    const replay = await harness.initialImport.complete(
+      context,
+      itemId,
+      key,
+      'request-2',
+    );
+
+    expect(replay).toEqual(first);
+    expect(harness.completeConnection).toHaveBeenCalledTimes(1);
+    expect(harness.getConnection).toHaveBeenCalledTimes(1);
+    expect(
+      reservation.mock.calls.map(([, usedKey, hash]) => [usedKey, hash]),
+    ).toEqual([
+      [key, reservation.mock.calls[0]?.[2]],
+      [key, reservation.mock.calls[0]?.[2]],
+    ]);
+  });
+
   it('does not persist investment accounts returned with account metadata', async () => {
     const bankAccount = providerAccount();
     const investmentAccount = providerAccount({
