@@ -437,6 +437,26 @@ class PrismaTenantTransactionsRepository implements TenantTransactionsRepository
     );
   }
 
+  async countFallbackCandidates(input: {
+    accountId: string;
+    type: 'income' | 'expense';
+    amount: string;
+    occurredOn: string;
+    description: string | null;
+  }): Promise<number> {
+    return this.transaction.transaction.count({
+      where: {
+        tenantId: this.context.tenantId,
+        accountId: input.accountId,
+        type: TO_PRISMA_TRANSACTION_TYPE[input.type],
+        amount: input.amount,
+        occurredOn: toDate(input.occurredOn),
+        description: input.description,
+        status: PrismaTransactionStatus.POSTED,
+      },
+    });
+  }
+
   async findById(transactionId: string): Promise<TransactionSnapshot | null> {
     const record = await this.transaction.transaction.findFirst({
       where: { id: transactionId, tenantId: this.context.tenantId },

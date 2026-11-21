@@ -31,6 +31,7 @@ describe('FindOfxTransactionDuplicates', () => {
       create: vi.fn(),
       createIfExternalIdentityAbsent: vi.fn(),
       findExistingExternalIdentityKeys,
+      countFallbackCandidates: vi.fn(),
       findById: vi.fn(),
       findByIdForUpdate: vi.fn(),
       findByIds: vi.fn(),

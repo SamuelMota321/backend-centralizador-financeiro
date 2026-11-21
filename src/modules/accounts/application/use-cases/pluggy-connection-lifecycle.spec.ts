@@ -159,9 +159,13 @@ function makeHarness(
   const provider: PluggyProvider = {
     createConnectToken: providerCreateConnectToken,
     getItem: providerGetItem,
+    updateItem: () => Promise.resolve(item),
     listConsents: providerListConsents,
     listAccounts: () => Promise.resolve({ accounts: [], totalPages: 0 }),
     listTransactions: () => Promise.resolve({ transactions: [], next: null }),
+    listInvestments: () => Promise.resolve({ investments: [], totalPages: 0 }),
+    listInvestmentMovements: () =>
+      Promise.resolve({ movements: [], totalPages: 0 }),
     deleteItem: providerDeleteItem,
   };
   return {

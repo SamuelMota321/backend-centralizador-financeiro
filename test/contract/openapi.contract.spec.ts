@@ -119,6 +119,35 @@ describe('OpenAPI contract', () => {
     );
   });
 
+  it('documents HU-008 manual, status and Item update routes', () => {
+    const operations: Array<[string, string, string]> = [
+      ['/api/v1/connections/{connectionId}/sync-runs', 'post', '202'],
+      ['/api/v1/connections/{connectionId}/sync-runs/latest', 'get', '200'],
+      ['/api/v1/connections/{connectionId}/sync-runs/{runId}', 'get', '200'],
+      ['/api/v1/connections/{connectionId}/update-session', 'post', '200'],
+    ];
+    for (const [path, method, status] of operations) {
+      const operation = document.paths?.[path]?.[method];
+      expect(operation, `${method.toUpperCase()} ${path}`).toBeDefined();
+      expect(operation?.security).toEqual([{ auth0: [] }]);
+      expect(operation?.responses).toHaveProperty(status);
+      for (const [errorStatus, response] of Object.entries(
+        operation?.responses ?? {},
+      )) {
+        if (/^[45]\d\d$/.test(errorStatus))
+          expect(response.content).toHaveProperty('application/problem+json');
+      }
+    }
+    const run =
+      document.paths?.[operations[0]![0]]?.post?.responses?.['202']?.content?.[
+        'application/json'
+      ]?.schema;
+    expect(run?.required).toEqual(
+      expect.arrayContaining(['runId', 'status', 'reasons', 'statusUrl']),
+    );
+    expect(run?.properties).not.toHaveProperty('connectToken');
+  });
+
   it('does not expose hard-delete for accounts', () => {
     expect(document.paths?.['/api/v1/accounts/{accountId}']).not.toHaveProperty(
       'delete',

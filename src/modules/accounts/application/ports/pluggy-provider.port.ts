@@ -10,6 +10,10 @@ export type PluggyItemSnapshot = Readonly<{
   clientUserId: string | null;
   status: string;
   executionStatus: string;
+  products?: readonly string[];
+  unavailableProducts?: readonly string[];
+  lastUpdatedAt?: Date | null;
+  userAction?: string | null;
 }>;
 
 export type PluggyConsentSnapshot = Readonly<{
@@ -39,7 +43,7 @@ export type PluggyAccountSnapshot = Readonly<{
 }>;
 
 export type PluggyTransactionSnapshot = Readonly<{
-  id: string;
+  id: string | null;
   accountId: string;
   amount: string;
   date: string;
@@ -59,14 +63,58 @@ export type PluggyTransactionsPage = Readonly<{
   next: string | null;
 }>;
 
+export type PluggyInvestmentSnapshot = Readonly<{
+  id: string;
+  name: string;
+  type: string;
+  subtype: string | null;
+  balance: string;
+  currencyCode: string | null;
+  quantity: string | null;
+  amount: string | null;
+  amountOriginal: string | null;
+  amountProfit: string | null;
+  institutionName: string | null;
+  rate: string | null;
+  rateType: string | null;
+  maturityDate: string | null;
+  date: string | null;
+}>;
+
+export type PluggyInvestmentMovementSnapshot = Readonly<{
+  id: string;
+  type: string;
+  amount: string;
+  date: string;
+}>;
+
+export type PluggyInvestmentsPage = Readonly<{
+  investments: readonly PluggyInvestmentSnapshot[];
+  totalPages: number;
+}>;
+
+export type PluggyInvestmentMovementsPage = Readonly<{
+  movements: readonly PluggyInvestmentMovementSnapshot[];
+  totalPages: number;
+}>;
+
 export interface PluggyProvider {
-  createConnectToken(clientUserId: string): Promise<PluggyConnectToken>;
+  createConnectToken(
+    clientUserId: string,
+    itemId?: string,
+  ): Promise<PluggyConnectToken>;
   getItem(itemId: string): Promise<PluggyItemSnapshot | null>;
+  updateItem(itemId: string): Promise<PluggyItemSnapshot>;
   listConsents(itemId: string): Promise<readonly PluggyConsentSnapshot[]>;
   listAccounts(itemId: string, page: number): Promise<PluggyAccountsPage>;
   listTransactions(
     accountId: string,
     next: string | null,
   ): Promise<PluggyTransactionsPage>;
+  listInvestments(itemId: string, page: number): Promise<PluggyInvestmentsPage>;
+  listInvestmentMovements(
+    investmentId: string,
+    page: number,
+  ): Promise<PluggyInvestmentMovementsPage>;
   deleteItem(itemId: string): Promise<void>;
 }

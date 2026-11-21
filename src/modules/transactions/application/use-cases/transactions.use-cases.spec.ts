@@ -87,9 +87,7 @@ function createRepository() {
   const createTransactionIfAbsent = vi.fn<
     TenantTransactionsRepository['createIfExternalIdentityAbsent']
   >((transaction) =>
-    Promise.resolve(
-      transaction.props.tenantId ? transactionSnapshot : null,
-    ),
+    Promise.resolve(transaction.props.tenantId ? transactionSnapshot : null),
   );
   const findTransactionById = vi.fn(() => Promise.resolve(transactionSnapshot));
   const findTransactionsByIds = vi.fn(() =>
@@ -99,6 +97,7 @@ function createRepository() {
     create: createTransaction,
     createIfExternalIdentityAbsent: createTransactionIfAbsent,
     findExistingExternalIdentityKeys: vi.fn(() => Promise.resolve([])),
+    countFallbackCandidates: vi.fn(() => Promise.resolve(0)),
     findById: findTransactionById,
     findByIds: findTransactionsByIds,
     findByIdForUpdate: findTransactionById,

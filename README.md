@@ -77,6 +77,14 @@ npm run test:e2e
 
 O contrato de regras limita `priority` ao intervalo inclusivo de `0` a `2147483647`, rejeita contas arquivadas e usa `ACCOUNT_NOT_FOUND` para conta inexistente tanto na criação quanto na edição. `PATCH /category-rules/{ruleId}` vazio retorna `400 INVALID_REQUEST` com erro aninhado `EMPTY_PATCH`. Categoria duplicada retorna `409 CATEGORY_ALREADY_EXISTS`. `DELETE /category-rules/{ruleId}` retorna `200` com `CategoryRuleView`; `204` não faz parte do contrato.
 
+## Sincronização Pluggy (HU-008)
+
+`POST /api/v1/connections/{connectionId}/sync-runs` aceita uma execução manual e devolve `202` com `runId`, estado e `statusUrl`. `GET /api/v1/connections/{connectionId}/sync-runs/{runId}` consulta essa execução; `/latest` traz a execução mais recente e a última reconciliada. Uma execução ativa da mesma conexão é reutilizada. `POST /api/v1/connections/{connectionId}/update-session` emite um Connect Token restrito ao Item existente para resolver `action_required`; a conclusão do widget deve seguir o endpoint de completion existente para atualizar o consentimento local.
+
+O worker recebe somente `runId`, `tenantId` e `userId`, verifica a assinatura QStash, revalida conexão/consentimento e usa chave única por dia e conexão para evitar replay diário. A sincronização guarda saldos em snapshots, importa transações apenas em contas explicitamente mapeadas e guarda posições/movimentos de investimento apenas quando o Item e o consentimento ativo incluem ambos os produtos. Runs terminais expiram em 30 dias; o worker diário remove os vencidos. Falhas transitórias recebem três retries QStash após a tentativa inicial, com intervalo de 11 minutos e lease de 10 minutos.
+
+Após migrar um ambiente autorizado e configurar as variáveis QStash, registre a agenda com `npm run qstash:ensure-pluggy-daily`. O script cria ou substitui apenas o ID `cfi-pluggy-daily-sync` para `12:00 America/Sao_Paulo`. Para suspender, use `client.schedules.pause({ schedule: 'cfi-pluggy-daily-sync' })`; para remover, use `client.schedules.delete('cfi-pluggy-daily-sync')`. Essas operações são externas e não ocorrem no deploy da API. Em banco de teste isolado, `scripts/database/verify-pluggy-sync.sql` valida concorrência, replay, RLS, enumeração diária e retenção dentro de uma transação com rollback.
+
 ## Erros HTTP
 
 Erros de validação, autenticação, autorização, conflito e recurso inexistente usam `application/problem+json` com o contrato Problem Details da API. JSON malformado é interceptado antes dos controllers e retorna `400 INVALID_REQUEST` com o detalhe `The request body contains invalid JSON.`; o corpo bruto nunca é registrado.

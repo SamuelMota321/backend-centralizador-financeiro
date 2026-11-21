@@ -24,7 +24,8 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:verify-migrations": "tsx scripts/database/verify-migrations.ts",
     "db:verify-rls": "tsx scripts/database/verify-rls.ts",
-    "openapi:generate": "tsx scripts/generate-openapi.ts"
+    "openapi:generate": "tsx scripts/generate-openapi.ts",
+    "qstash:ensure-pluggy-daily": "tsx scripts/qstash/ensure-pluggy-daily-schedule.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1148.0",

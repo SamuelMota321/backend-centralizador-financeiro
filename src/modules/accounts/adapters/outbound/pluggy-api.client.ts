@@ -10,6 +10,8 @@ import type {
   PluggyItemSnapshot,
   PluggyProvider,
   PluggyTransactionsPage,
+  PluggyInvestmentsPage,
+  PluggyInvestmentMovementsPage,
 } from '../../application/ports/pluggy-provider.port.js';
 
 const PLUGGY_API_URL = 'https://api.pluggy.ai';
@@ -26,6 +28,14 @@ const itemResponseSchema = z.object({
   clientUserId: z.string().nullable(),
   status: z.string().min(1),
   executionStatus: z.string().min(1),
+  products: z.array(z.string()).optional(),
+  statusDetail: z.unknown().optional(),
+  lastUpdatedAt: z.iso.datetime().nullable().optional(),
+  userAction: z
+    .object({ type: z.string() })
+    .passthrough()
+    .nullable()
+    .optional(),
 });
 const consentResponseSchema = z.object({
   id: z.string().uuid(),
@@ -53,7 +63,7 @@ const accountsResponseSchema = z.object({
   results: z.array(accountResponseSchema),
 });
 const transactionResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().uuid().nullish(),
   accountId: z.string().uuid(),
   amount: z.number().finite(),
   date: z.iso.datetime(),
@@ -66,9 +76,48 @@ const transactionsResponseSchema = z.object({
   results: z.array(transactionResponseSchema),
   next: z.string().nullable(),
 });
+const investmentResponseSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  type: z.string().min(1),
+  subtype: z.string().nullish(),
+  balance: z.number().finite(),
+  currencyCode: z.string().length(3).nullish(),
+  quantity: z.number().finite().nullish(),
+  amount: z.number().finite().nullish(),
+  amountOriginal: z.number().finite().nullish(),
+  amountProfit: z.number().finite().nullish(),
+  institution: z.object({ name: z.string().nullish() }).nullish(),
+  rate: z.number().finite().nullish(),
+  rateType: z.string().nullish(),
+  dueDate: z.iso.datetime().nullish(),
+  date: z.iso.datetime().nullish(),
+});
+const investmentsResponseSchema = z.object({
+  totalPages: z.number().int().nonnegative(),
+  results: z.array(investmentResponseSchema),
+});
+const investmentMovementResponseSchema = z.object({
+  id: z.string().min(1),
+  type: z.string().min(1),
+  amount: z.number().finite(),
+  date: z.iso.datetime(),
+});
+const investmentMovementsResponseSchema = z.object({
+  totalPages: z.number().int().nonnegative(),
+  results: z.array(investmentMovementResponseSchema),
+});
 
 export class PluggyUnavailable extends Error {
   override readonly name = 'PluggyUnavailable';
+}
+
+export class PluggyActionRequired extends Error {
+  override readonly name = 'PluggyActionRequired';
+}
+
+export class PluggyUpdateDeferred extends Error {
+  override readonly name = 'PluggyUpdateDeferred';
 }
 
 type ApiKeyCache = Readonly<{ value: string; expiresAt: number }>;
@@ -80,11 +129,30 @@ export class PluggyApiClient implements PluggyProvider {
 
   constructor(private readonly config: ConfigService<Environment, true>) {}
 
-  async createConnectToken(clientUserId: string): Promise<PluggyConnectToken> {
+  async createConnectToken(
+    clientUserId: string,
+    itemId?: string,
+  ): Promise<PluggyConnectToken> {
     const requestStartedAt = Date.now();
     const body = await this.request('/connect_token', {
       method: 'POST',
-      body: JSON.stringify({ options: { clientUserId } }),
+      body: JSON.stringify({
+        ...(itemId ? { itemId } : {}),
+        options: {
+          clientUserId,
+          ...(!itemId
+            ? {
+                products: [
+                  'ACCOUNTS',
+                  'CREDIT_CARDS',
+                  'TRANSACTIONS',
+                  'INVESTMENTS',
+                  'INVESTMENTS_TRANSACTIONS',
+                ],
+              }
+            : {}),
+        },
+      }),
     });
     const parsed = connectTokenResponseSchema.safeParse(body);
     if (!parsed.success) throw new PluggyUnavailable();
@@ -105,7 +173,60 @@ export class PluggyApiClient implements PluggyProvider {
 
     const parsed = itemResponseSchema.safeParse(await readJson(response));
     if (!parsed.success) throw new PluggyUnavailable();
-    return parsed.data;
+    return {
+      ...parsed.data,
+      unavailableProducts: unavailableProducts(parsed.data.statusDetail),
+      userAction: parsed.data.userAction?.type ?? null,
+      lastUpdatedAt: parsed.data.lastUpdatedAt
+        ? new Date(parsed.data.lastUpdatedAt)
+        : null,
+    };
+  }
+
+  async updateItem(itemId: string): Promise<PluggyItemSnapshot> {
+    const response = await this.requestResponse(
+      `/items/${encodeURIComponent(itemId)}`,
+      {
+        method: 'PATCH',
+        body: '{}',
+      },
+    );
+    if (!response.ok) {
+      const body = await readJson(response).catch(() => null);
+      const code =
+        typeof body === 'object' && body !== null && 'codeDescription' in body
+          ? String(body.codeDescription)
+          : '';
+      if (
+        code === 'PARAMETERS_NOT_PROVIDED' ||
+        code === 'LAST_EXECUTION_HAD_LOGIN_ERROR' ||
+        code === 'CONNECTOR_REQUIRED_PARAMETER_VALIDATION_ERROR' ||
+        code.includes('MFA') ||
+        code.includes('CREDENTIAL')
+      ) {
+        throw new PluggyActionRequired();
+      }
+      if (
+        code === 'ITEM_ALREADY_UPDATING' ||
+        code === 'ITEM_IS_ALREADY_UPDATING'
+      ) {
+        throw new PluggyUnavailable();
+      }
+      if (code === 'CLIENT_IS_UPDATING_BEFORE_ALLOWED_FREQUENCY') {
+        throw new PluggyUpdateDeferred();
+      }
+      throw new PluggyUnavailable();
+    }
+    const parsed = itemResponseSchema.safeParse(await readJson(response));
+    if (!parsed.success) throw new PluggyUnavailable();
+    return {
+      ...parsed.data,
+      unavailableProducts: unavailableProducts(parsed.data.statusDetail),
+      userAction: parsed.data.userAction?.type ?? null,
+      lastUpdatedAt: parsed.data.lastUpdatedAt
+        ? new Date(parsed.data.lastUpdatedAt)
+        : null,
+    };
   }
 
   async listConsents(
@@ -160,7 +281,7 @@ export class PluggyApiClient implements PluggyProvider {
     return {
       next: parsed.data.next,
       transactions: parsed.data.results.map((transaction) => ({
-        id: transaction.id,
+        id: transaction.id ?? null,
         accountId: transaction.accountId,
         amount: String(transaction.amount),
         date: transaction.date,
@@ -180,6 +301,75 @@ export class PluggyApiClient implements PluggyProvider {
     if (!response.ok && response.status !== 404) {
       throw new PluggyUnavailable();
     }
+  }
+
+  async listInvestments(
+    itemId: string,
+    page: number,
+  ): Promise<PluggyInvestmentsPage> {
+    const query = new URLSearchParams({
+      itemId,
+      page: String(page),
+      pageSize: '500',
+    });
+    const body = await this.request(`/investments?${query.toString()}`, {});
+    const parsed = investmentsResponseSchema.safeParse(body);
+    if (!parsed.success) throw new PluggyUnavailable();
+    return {
+      totalPages: parsed.data.totalPages,
+      investments: parsed.data.results.map((row) => ({
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        subtype: row.subtype ?? null,
+        balance: String(row.balance),
+        currencyCode: row.currencyCode ?? null,
+        quantity:
+          row.quantity === undefined || row.quantity === null
+            ? null
+            : String(row.quantity),
+        amount:
+          row.amount === undefined || row.amount === null
+            ? null
+            : String(row.amount),
+        amountOriginal:
+          row.amountOriginal === undefined || row.amountOriginal === null
+            ? null
+            : String(row.amountOriginal),
+        amountProfit:
+          row.amountProfit === undefined || row.amountProfit === null
+            ? null
+            : String(row.amountProfit),
+        institutionName: row.institution?.name ?? null,
+        rate:
+          row.rate === undefined || row.rate === null ? null : String(row.rate),
+        rateType: row.rateType ?? null,
+        maturityDate: row.dueDate ?? null,
+        date: row.date ?? null,
+      })),
+    };
+  }
+
+  async listInvestmentMovements(
+    investmentId: string,
+    page: number,
+  ): Promise<PluggyInvestmentMovementsPage> {
+    const query = new URLSearchParams({ page: String(page), pageSize: '500' });
+    const body = await this.request(
+      `/investments/${encodeURIComponent(investmentId)}/transactions?${query.toString()}`,
+      {},
+    );
+    const parsed = investmentMovementsResponseSchema.safeParse(body);
+    if (!parsed.success) throw new PluggyUnavailable();
+    return {
+      totalPages: parsed.data.totalPages,
+      movements: parsed.data.results.map((row) => ({
+        id: row.id,
+        type: row.type,
+        amount: String(row.amount),
+        date: row.date,
+      })),
+    };
   }
 
   private async request(path: string, init: RequestInit): Promise<unknown> {
@@ -266,6 +456,26 @@ export class PluggyApiClient implements PluggyProvider {
       expiresAt: requestStartedAt + API_KEY_LIFETIME_MS,
     };
   }
+}
+
+function unavailableProducts(detail: unknown): string[] {
+  if (!detail || typeof detail !== 'object') return [];
+  const products = {
+    accounts: 'ACCOUNTS',
+    creditCards: 'CREDIT_CARDS',
+    transactions: 'TRANSACTIONS',
+    investments: 'INVESTMENTS',
+    investmentsTransactions: 'INVESTMENTS_TRANSACTIONS',
+  } as const;
+  return Object.entries(products).flatMap(([key, product]) => {
+    const value = (detail as Record<string, unknown>)[key];
+    return value &&
+      typeof value === 'object' &&
+      'isUpdated' in value &&
+      value.isUpdated === false
+      ? [product]
+      : [];
+  });
 }
 
 function toPluggyAccountSnapshot(

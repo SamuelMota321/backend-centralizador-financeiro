@@ -22,6 +22,13 @@ export interface TenantTransactionsRepository {
     accountId: string,
     identityKeys: readonly string[],
   ): Promise<readonly string[]>;
+  countFallbackCandidates(input: {
+    accountId: string;
+    type: 'income' | 'expense';
+    amount: string;
+    occurredOn: string;
+    description: string | null;
+  }): Promise<number>;
   findById(transactionId: string): Promise<TransactionSnapshot | null>;
   findByIdForUpdate(transactionId: string): Promise<TransactionSnapshot | null>;
   findByIds(transactionIds: readonly string[]): Promise<TransactionSnapshot[]>;

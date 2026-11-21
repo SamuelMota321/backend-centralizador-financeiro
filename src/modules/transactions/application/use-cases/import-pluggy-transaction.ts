@@ -17,7 +17,8 @@ export type ImportPluggyTransactionInput = Readonly<{
   connectionId: string;
   accountId: string;
   providerAccountId: string;
-  providerTransactionId: string;
+  providerTransactionId: string | null;
+  currencyCode: string;
   type: 'income' | 'expense';
   amount: string;
   occurredOn: string;
@@ -26,7 +27,7 @@ export type ImportPluggyTransactionInput = Readonly<{
 
 export type ImportPluggyTransactionResult =
   | Readonly<{ disposition: 'imported'; transactionId: string }>
-  | Readonly<{ disposition: 'duplicate' }>;
+  | Readonly<{ disposition: 'duplicate' | 'ambiguous' }>;
 
 export class ImportPluggyTransaction {
   constructor(
@@ -44,7 +45,9 @@ export class ImportPluggyTransaction {
       !isCanonicalUuid(input.accountId) ||
       !isCanonicalUuid(input.connectionId) ||
       !isCanonicalUuid(input.providerAccountId) ||
-      !isCanonicalUuid(input.providerTransactionId)
+      (input.providerTransactionId !== null &&
+        !isCanonicalUuid(input.providerTransactionId)) ||
+      !/^[A-Z]{3}$/.test(input.currencyCode)
     ) {
       throw new InvalidTransactionRequest('Invalid Pluggy import identity.');
     }
@@ -73,6 +76,17 @@ export class ImportPluggyTransaction {
     });
 
     return this.unitOfWork.run(context, async (scope) => {
+      if (input.providerTransactionId === null) {
+        const matches = await scope.transactions.countFallbackCandidates({
+          accountId: input.accountId.toLowerCase(),
+          type: input.type,
+          amount: String(amount),
+          occurredOn: input.occurredOn,
+          description: input.description,
+        });
+        if (matches > 1) return { disposition: 'ambiguous' };
+        if (matches === 1) return { disposition: 'duplicate' };
+      }
       const snapshot =
         await scope.transactions.createIfExternalIdentityAbsent(transaction);
       if (!snapshot) return { disposition: 'duplicate' };
@@ -97,9 +111,12 @@ export class ImportPluggyTransaction {
 function createPluggyExternalIdentityKey(
   input: ImportPluggyTransactionInput,
 ): string {
+  const identity = input.providerTransactionId
+    ? input.providerTransactionId.toLowerCase()
+    : `${input.currencyCode}\0${input.occurredOn}\0${Math.abs(Number(input.amount))}\0${input.type}\0${input.description ?? ''}`;
   return createHash('sha256')
     .update(
-      `${input.connectionId.toLowerCase()}\0${input.providerAccountId.toLowerCase()}\0${input.providerTransactionId.toLowerCase()}`,
+      `${input.connectionId.toLowerCase()}\0${input.providerAccountId.toLowerCase()}\0${identity}`,
       'utf8',
     )
     .digest('hex');

@@ -18,6 +18,7 @@ import {
 } from '../../domain/connection.js';
 import {
   ConnectionNotFound,
+  ConnectionRequestConflict,
   InvalidPluggyWebhook,
 } from '../../domain/connection.errors.js';
 
@@ -119,6 +120,30 @@ export class PluggyConnectionLifecycle {
       },
     );
     return toConnectionView(transition);
+  }
+
+  async startUpdate(
+    context: TenantContext,
+    connectionId: string,
+    requestId: string,
+  ): Promise<{ connectToken: string; expiresAt: string }> {
+    const connection = await this.get(context, connectionId, requestId);
+    if (
+      connection.status === 'disconnected' ||
+      connection.status === 'pending_authorization'
+    ) {
+      throw new ConnectionRequestConflict();
+    }
+    const reference = await this.getCollectionReference(context, connectionId);
+    if (!reference) throw new ConnectionNotFound();
+    const token = await this.provider.createConnectToken(
+      createClientUserId(context, connectionId),
+      reference.providerItemId,
+    );
+    return {
+      connectToken: token.accessToken,
+      expiresAt: token.expiresAt.toISOString(),
+    };
   }
 
   async get(

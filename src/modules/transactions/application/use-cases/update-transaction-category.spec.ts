@@ -4,7 +4,10 @@ import type { AuditRecord } from '../../../audit/application/audit-record.js';
 import type { TenantContext } from '../../../../shared/application/tenant-context.js';
 import type { TenantIdempotencyRepository } from '../ports/idempotency.repository.port.js';
 import type { CategorySnapshot, Category } from '../../domain/category.js';
-import type { Transaction, TransactionSnapshot } from '../../domain/transaction.js';
+import type {
+  Transaction,
+  TransactionSnapshot,
+} from '../../domain/transaction.js';
 import type {
   TenantCategoriesRepository,
   TenantCategoryRulesRepository,
@@ -60,13 +63,9 @@ describe('UpdateTransactionCategory', () => {
         categorizationSource: entity.props.categorizationSource,
       }),
     );
-    const scope = createScope(
-      transactions,
-      categories,
-      (record) => {
-        audited = record;
-      },
-    );
+    const scope = createScope(transactions, categories, (record) => {
+      audited = record;
+    });
     const repository: TransactionsRepository = {
       withTenant: async (_context, operation) => operation(scope),
     };
@@ -142,6 +141,7 @@ function createTransactionsRepository(
     create: vi.fn(() => Promise.resolve(snapshot)),
     createIfExternalIdentityAbsent: vi.fn(() => Promise.resolve(snapshot)),
     findExistingExternalIdentityKeys: vi.fn(() => Promise.resolve([])),
+    countFallbackCandidates: vi.fn(() => Promise.resolve(0)),
     findById: vi.fn(() => Promise.resolve(snapshot)),
     findByIdForUpdate: vi.fn(() => Promise.resolve(snapshot)),
     findByIds: vi.fn(() => Promise.resolve([snapshot])),
@@ -155,16 +155,18 @@ function createCategoriesRepository(
   snapshot: CategorySnapshot | null,
 ): TenantCategoriesRepository {
   return {
-    create: vi.fn((category: Category) => Promise.resolve({
-      id: snapshot?.id ?? randomUUID(),
-      tenantId: category.props.tenantId,
-      name: category.props.name,
-      source: category.props.source,
-      status: category.props.status,
-      archivedAt: category.props.archivedAt,
-      createdAt: '2026-09-20T10:00:00.000Z',
-      updatedAt: '2026-09-20T10:00:00.000Z',
-    })),
+    create: vi.fn((category: Category) =>
+      Promise.resolve({
+        id: snapshot?.id ?? randomUUID(),
+        tenantId: category.props.tenantId,
+        name: category.props.name,
+        source: category.props.source,
+        status: category.props.status,
+        archivedAt: category.props.archivedAt,
+        createdAt: '2026-09-20T10:00:00.000Z',
+        updatedAt: '2026-09-20T10:00:00.000Z',
+      }),
+    ),
     findById: vi.fn(() => Promise.resolve(snapshot)),
     findByIdForUpdate: vi.fn(() => Promise.resolve(snapshot)),
     count: vi.fn(() => Promise.resolve(snapshot ? 1 : 0)),
@@ -197,7 +199,9 @@ function createScope(
   };
   const idempotency: TenantIdempotencyRepository = {
     find: vi.fn(() => Promise.resolve(null)),
-    claim: vi.fn(() => Promise.reject(new Error('Unused idempotency fixture.'))),
+    claim: vi.fn(() =>
+      Promise.reject(new Error('Unused idempotency fixture.')),
+    ),
     complete: vi.fn(() => Promise.resolve()),
   };
   return {

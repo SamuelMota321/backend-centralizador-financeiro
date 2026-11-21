@@ -532,7 +532,8 @@ export class PluggyInitialImport {
     counts.totalTransactions += 1;
     if (
       providerTransaction.accountId !== account.providerAccountId ||
-      !UUID_PATTERN.test(providerTransaction.id)
+      (providerTransaction.id !== null &&
+        !UUID_PATTERN.test(providerTransaction.id))
     ) {
       counts.failedTransactions += 1;
       return;
@@ -553,6 +554,7 @@ export class PluggyInitialImport {
           accountId: account.mappedAccountId!,
           providerAccountId: account.providerAccountId,
           providerTransactionId: providerTransaction.id,
+          currencyCode: providerTransaction.currencyCode,
           type: providerTransaction.type === 'CREDIT' ? 'income' : 'expense',
           amount: providerTransaction.amount,
           occurredOn: providerTransaction.date.slice(0, 10),
@@ -561,6 +563,8 @@ export class PluggyInitialImport {
         requestId,
       );
       if (result.disposition === 'imported') counts.importedTransactions += 1;
+      else if (result.disposition === 'ambiguous')
+        counts.failedTransactions += 1;
       else counts.ignoredTransactions += 1;
     } catch (error: unknown) {
       if (

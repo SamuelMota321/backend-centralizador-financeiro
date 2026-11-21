@@ -47,6 +47,8 @@ import {
   PluggyInitialImportController,
   PluggyInitialImportWorkerController,
 } from '../src/modules/ingestion/adapters/inbound/pluggy-initial-import.controller.js';
+import { PluggySyncController } from '../src/modules/sync/adapters/inbound/pluggy-sync.controller.js';
+import { PluggySynchronization } from '../src/modules/sync/application/pluggy-synchronization.js';
 
 const databaseSecurityCheck: Pick<
   DatabaseSecurityCheckService,
@@ -152,9 +154,11 @@ const getImportRun: Pick<GetImportRun, 'execute'> = {
 
 const pluggyConnectionLifecycle: Pick<
   PluggyConnectionLifecycle,
-  'start' | 'complete' | 'get' | 'disconnect' | 'processWebhook'
+  'start' | 'startUpdate' | 'complete' | 'get' | 'disconnect' | 'processWebhook'
 > = {
   start: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+  startUpdate: () =>
     Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
   complete: () =>
     Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
@@ -196,6 +200,18 @@ const pluggyInitialImport: Pick<
     Promise.reject(new Error('OpenAPI generation does not process jobs.')),
 };
 
+const pluggySynchronization: Pick<
+  PluggySynchronization,
+  'requestManual' | 'get' | 'latest'
+> = {
+  requestManual: () =>
+    Promise.reject(new Error('OpenAPI generation does not start syncs.')),
+  get: () =>
+    Promise.reject(new Error('OpenAPI generation does not read syncs.')),
+  latest: () =>
+    Promise.reject(new Error('OpenAPI generation does not read syncs.')),
+};
+
 const accessTokenVerifier: AccessTokenVerifier = {
   verify: () =>
     Promise.reject(new Error('OpenAPI generation does not verify tokens.')),
@@ -216,6 +232,7 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     PluggyWebhookController,
     PluggyInitialImportController,
     PluggyInitialImportWorkerController,
+    PluggySyncController,
   ],
   providers: [
     {
@@ -247,6 +264,7 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
       useValue: qstashPluggyWebhookService,
     },
     { provide: PluggyInitialImport, useValue: pluggyInitialImport },
+    { provide: PluggySynchronization, useValue: pluggySynchronization },
     { provide: ConfigService, useValue: { get: () => undefined } },
     { provide: ACCESS_TOKEN_VERIFIER, useValue: accessTokenVerifier },
     { provide: ResolveIdentityContext, useValue: resolveIdentityContext },

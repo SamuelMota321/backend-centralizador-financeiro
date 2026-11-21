@@ -251,9 +251,14 @@ function createHarness(options: {
         expiresAt: now,
       }),
     getItem: () => Promise.resolve(null),
+    updateItem: () =>
+      Promise.reject(new Error('Unused in initial-import tests')),
     listConsents: () => Promise.resolve([]),
     listAccounts,
     listTransactions,
+    listInvestments: () => Promise.resolve({ investments: [], totalPages: 0 }),
+    listInvestmentMovements: () =>
+      Promise.resolve({ movements: [], totalPages: 0 }),
     deleteItem: () => Promise.resolve(),
   };
   const eligibility: ConnectionsCollectionEligibility = {

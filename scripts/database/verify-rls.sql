@@ -11,6 +11,10 @@ DECLARE
   ingestion_items_owner name;
   pluggy_import_runs_owner name;
   pluggy_import_accounts_owner name;
+  pluggy_sync_runs_owner name;
+  pluggy_account_snapshots_owner name;
+  pluggy_investments_owner name;
+  pluggy_investment_movements_owner name;
   runtime_is_safe boolean;
   test_is_safe boolean;
 BEGIN
@@ -30,7 +34,11 @@ BEGIN
     'public.ingestion_items'::regclass,
     'public.connections'::regclass,
     'public.pluggy_initial_import_runs'::regclass,
-    'public.pluggy_initial_import_accounts'::regclass
+    'public.pluggy_initial_import_accounts'::regclass,
+    'public.pluggy_sync_runs'::regclass,
+    'public.pluggy_account_snapshots'::regclass,
+    'public.pluggy_investments'::regclass,
+    'public.pluggy_investment_movements'::regclass
   )
   AND relrowsecurity;
 
@@ -50,7 +58,11 @@ BEGIN
     'public.ingestion_items'::regclass,
     'public.connections'::regclass,
     'public.pluggy_initial_import_runs'::regclass,
-    'public.pluggy_initial_import_accounts'::regclass
+    'public.pluggy_initial_import_accounts'::regclass,
+    'public.pluggy_sync_runs'::regclass,
+    'public.pluggy_account_snapshots'::regclass,
+    'public.pluggy_investments'::regclass,
+    'public.pluggy_investment_movements'::regclass
   )
   AND relforcerowsecurity;
 
@@ -71,7 +83,11 @@ BEGIN
       'ingestion_items',
       'connections',
       'pluggy_initial_import_runs',
-      'pluggy_initial_import_accounts'
+      'pluggy_initial_import_accounts',
+      'pluggy_sync_runs',
+      'pluggy_account_snapshots',
+      'pluggy_investments',
+      'pluggy_investment_movements'
     );
 
   SELECT relowner::regrole INTO audit_owner
@@ -98,6 +114,11 @@ BEGIN
   FROM pg_class
   WHERE oid = 'public.pluggy_initial_import_accounts'::regclass;
 
+  SELECT relowner::regrole INTO pluggy_sync_runs_owner FROM pg_class WHERE oid = 'public.pluggy_sync_runs'::regclass;
+  SELECT relowner::regrole INTO pluggy_account_snapshots_owner FROM pg_class WHERE oid = 'public.pluggy_account_snapshots'::regclass;
+  SELECT relowner::regrole INTO pluggy_investments_owner FROM pg_class WHERE oid = 'public.pluggy_investments'::regclass;
+  SELECT relowner::regrole INTO pluggy_investment_movements_owner FROM pg_class WHERE oid = 'public.pluggy_investment_movements'::regclass;
+
   SELECT (
     NOT rolsuper AND NOT rolbypassrls AND rolname = 'cfi_runtime'
   ) INTO runtime_is_safe
@@ -110,7 +131,7 @@ BEGIN
   FROM pg_roles
   WHERE rolname = 'cfi_test';
 
-  IF enabled_count <> 14 OR forced_count <> 14 OR policy_count <> 53 THEN
+  IF enabled_count <> 18 OR forced_count <> 18 OR policy_count <> 69 THEN
     RAISE EXCEPTION 'RLS verification failed: enabled %, forced %, policies %',
       enabled_count, forced_count, policy_count;
   END IF;
@@ -128,6 +149,15 @@ BEGIN
   END IF;
   IF connections_owner <> 'cfi_owner' THEN
     RAISE EXCEPTION 'connections owner must be cfi_owner, got %', connections_owner;
+  END IF;
+  IF pluggy_sync_runs_owner <> 'cfi_owner' OR pluggy_account_snapshots_owner <> 'cfi_owner'
+     OR pluggy_investments_owner <> 'cfi_owner' OR pluggy_investment_movements_owner <> 'cfi_owner' THEN
+    RAISE EXCEPTION 'HU-008 table owners must be cfi_owner';
+  END IF;
+  IF NOT has_function_privilege('cfi_runtime', 'app_private.list_daily_pluggy_sync_targets()', 'EXECUTE')
+     OR NOT has_function_privilege('cfi_runtime', 'app_private.prune_expired_pluggy_sync_runs()', 'EXECUTE')
+     OR has_schema_privilege('cfi_identity_provisioner', 'app_private', 'CREATE') THEN
+    RAISE EXCEPTION 'HU-008 privileged function grants are unsafe';
   END IF;
   IF NOT COALESCE(runtime_is_safe, false) OR NOT COALESCE(test_is_safe, false) THEN
     RAISE EXCEPTION 'runtime/test role security attributes are unsafe';
