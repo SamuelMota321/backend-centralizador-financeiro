@@ -3,6 +3,7 @@ import {
   Catch,
   ForbiddenException,
   Logger,
+  PayloadTooLargeException,
   UnauthorizedException,
   type ExceptionFilter,
 } from '@nestjs/common';
@@ -67,6 +68,14 @@ export class IngestionProblemDetailsFilter implements ExceptionFilter {
         detail: 'The request contains invalid fields.',
         errors: exception.issues.flatMap(toValidationProblems),
       };
+    }
+    if (exception instanceof PayloadTooLargeException) {
+      return problem(
+        413,
+        'File too large',
+        'INVALID_REQUEST',
+        'The OFX file exceeds the supported size.',
+      );
     }
     if (isMulterError(exception)) {
       const tooLarge = exception.code === 'LIMIT_FILE_SIZE';

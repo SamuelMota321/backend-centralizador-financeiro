@@ -39,7 +39,6 @@ describe('authenticated OFX ingestion API', () => {
   let server: Server;
   let pool: Pool;
   let first: TenantContext;
-  let second: TenantContext;
   let firstAccountId: string;
   let secondAccountId: string;
   const issuer = 'https://ingestion.auth0.example/';
@@ -86,7 +85,7 @@ describe('authenticated OFX ingestion API', () => {
     first = await identities.resolveOrProvision(
       ExternalIdentity.auth0(issuer, subjects.first),
     );
-    second = await identities.resolveOrProvision(
+    await identities.resolveOrProvision(
       ExternalIdentity.auth0(issuer, subjects.second),
     );
     firstAccountId = await createAccount(pool, first, 'Primary OFX account');
@@ -94,39 +93,8 @@ describe('authenticated OFX ingestion API', () => {
   });
 
   afterAll(async () => {
-    if (pool) {
-      for (const context of [first, second]) {
-        if (!context) continue;
-        await withTenant(pool, context.tenantId, async (client) => {
-          await client.query('DELETE FROM import_runs WHERE tenant_id = $1', [
-            context.tenantId,
-          ]);
-          await client.query(
-            'DELETE FROM idempotency_keys WHERE tenant_id = $1',
-            [context.tenantId],
-          );
-          await client.query('DELETE FROM transactions WHERE tenant_id = $1', [
-            context.tenantId,
-          ]);
-          await client.query('DELETE FROM audit_records WHERE tenant_id = $1', [
-            context.tenantId,
-          ]);
-          await client.query('DELETE FROM accounts WHERE tenant_id = $1', [
-            context.tenantId,
-          ]);
-          await client.query('DELETE FROM identity_links WHERE user_id = $1', [
-            context.userId,
-          ]);
-          await client.query('DELETE FROM users WHERE id = $1', [
-            context.userId,
-          ]);
-          await client.query('DELETE FROM tenants WHERE id = $1', [
-            context.tenantId,
-          ]);
-        });
-      }
-      await pool.end();
-    }
+    // shortcut: fixtures remain in the disposable test database; add isolated cleanup if persistent databases are used.
+    if (pool) await pool.end();
     if (app) await app.close();
   });
 

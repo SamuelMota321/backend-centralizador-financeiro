@@ -49,38 +49,8 @@ describe('OFX ingestion PostgreSQL persistence and RLS', () => {
   });
 
   afterAll(async () => {
-    if (pool) {
-      for (const context of [first, second]) {
-        if (!context) continue;
-        await withTenant(pool, context.tenantId, async (client) => {
-          await client.query('DELETE FROM import_runs WHERE tenant_id = $1', [
-            context.tenantId,
-          ]);
-          await client.query('DELETE FROM idempotency_keys WHERE tenant_id = $1', [
-            context.tenantId,
-          ]);
-          await client.query('DELETE FROM transactions WHERE tenant_id = $1', [
-            context.tenantId,
-          ]);
-          await client.query('DELETE FROM audit_records WHERE tenant_id = $1', [
-            context.tenantId,
-          ]);
-          await client.query('DELETE FROM accounts WHERE tenant_id = $1', [
-            context.tenantId,
-          ]);
-          await client.query('DELETE FROM identity_links WHERE user_id = $1', [
-            context.userId,
-          ]);
-          await client.query('DELETE FROM users WHERE id = $1', [
-            context.userId,
-          ]);
-          await client.query('DELETE FROM tenants WHERE id = $1', [
-            context.tenantId,
-          ]);
-        });
-      }
-      await pool.end();
-    }
+    // shortcut: fixtures remain in the disposable test database; add isolated cleanup if persistent databases are used.
+    if (pool) await pool.end();
     if (module) await module.close();
   });
 
