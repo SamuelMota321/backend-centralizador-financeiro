@@ -60,6 +60,33 @@ describe('OpenAPI contract', () => {
     expect(portfolio?.properties).toHaveProperty('positions');
   });
 
+  it('publishes authenticated manual patrimony CRUD and history', () => {
+    const operations: Array<[string, string, string]> = [
+      ['/api/v1/patrimony/{collection}', 'post', '201'],
+      ['/api/v1/patrimony/{collection}', 'get', '200'],
+      ['/api/v1/patrimony/{collection}/{id}', 'get', '200'],
+      ['/api/v1/patrimony/{collection}/{id}', 'patch', '200'],
+      ['/api/v1/patrimony/{collection}/{id}/history', 'get', '200'],
+    ];
+    for (const [path, method, success] of operations) {
+      const operation = document.paths?.[path]?.[method];
+      expect(operation, `${method.toUpperCase()} ${path}`).toBeDefined();
+      expect(operation?.security).toEqual([{ auth0: [] }]);
+      expect(operation?.responses).toHaveProperty(success);
+      expect(
+        operation?.parameters?.find(
+          (parameter) => parameter.name === 'collection',
+        ),
+      ).toMatchObject({ required: true });
+      for (const [status, response] of Object.entries(
+        operation?.responses ?? {},
+      )) {
+        if (/^[45]\d\d$/.test(status))
+          expect(response.content).toHaveProperty('application/problem+json');
+      }
+    }
+  });
+
   it('documents authentication and Problem Details for account operations', () => {
     const operations: Array<[string, string]> = [
       ['/api/v1/accounts', 'post'],

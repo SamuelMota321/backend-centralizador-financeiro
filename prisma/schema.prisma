@@ -222,6 +222,8 @@ enum IdempotencyStatus {
 }
 
 enum AuditAction {
+  PATRIMONY_CREATED @map("patrimony_created")
+  PATRIMONY_UPDATED @map("patrimony_updated")
   ACCOUNT_UPDATED              @map("account_updated")
   ACCOUNT_DEACTIVATED          @map("account_deactivated")
   TRANSACTION_CREATED          @map("transaction_created")
@@ -241,6 +243,9 @@ enum AuditAction {
 }
 
 enum AuditResourceType {
+  PATRIMONIAL_ASSET @map("patrimonial_asset")
+  FINANCING @map("financing")
+  LIABILITY @map("liability")
   ACCOUNT       @map("account")
   TRANSACTION   @map("transaction")
   CATEGORY      @map("category")
@@ -276,6 +281,12 @@ model Tenant {
   pluggyInvestments PluggyInvestment[]
   pluggyInvestmentMovements PluggyInvestmentMovement[]
   idempotencyKeys IdempotencyKey[]
+  patrimonialAssets PatrimonialAsset[]
+  financings Financing[]
+  liabilities Liability[]
+  assetRevisions PatrimonialAssetRevision[]
+  financingRevisions FinancingRevision[]
+  liabilityRevisions LiabilityRevision[]
 
   @@map("tenants")
 }
@@ -290,6 +301,9 @@ model User {
   auditRecords  AuditRecord[]  @relation("AuditActor")
   connections   FinancialConnection[]
   pluggySyncRuns PluggySyncRun[]
+  assetRevisions PatrimonialAssetRevision[]
+  financingRevisions FinancingRevision[]
+  liabilityRevisions LiabilityRevision[]
 
   @@map("users")
 }
@@ -672,4 +686,121 @@ model AuditRecord {
   @@index([tenantId, resourceId, createdAt], map: "audit_records_tenant_resource_created_at_idx")
   @@index([requestId], map: "audit_records_request_id_idx")
   @@map("audit_records")
+}
+
+model PatrimonialAsset {
+  id                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                     @map("tenant_id") @db.Uuid
+  type               String                     @db.VarChar(80)
+  description        String                     @db.VarChar(500)
+  estimatedValue     Decimal                    @map("estimated_value") @db.Decimal(19, 2)
+  valuationDate      DateTime                   @map("valuation_date") @db.Date
+  source             String                     @db.VarChar(120)
+  version            Int                        @default(1)
+  createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "patrimonial_assets_tenant_id_fkey")
+  financings         Financing[]
+  financingRevisions FinancingRevision[]
+  revisions          PatrimonialAssetRevision[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, createdAt, id])
+  @@map("patrimonial_assets")
+}
+
+model Financing {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String              @map("tenant_id") @db.Uuid
+  description        String              @db.VarChar(500)
+  outstandingBalance Decimal             @map("outstanding_balance") @db.Decimal(19, 2)
+  assetId            String?             @map("asset_id") @db.Uuid
+  version            Int                 @default(1)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "financing_tenant_id_fkey")
+  asset              PatrimonialAsset?   @relation(fields: [tenantId, assetId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "financing_asset_tenant_fkey")
+  revisions          FinancingRevision[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, createdAt, id])
+  @@map("financing")
+}
+
+model Liability {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String              @map("tenant_id") @db.Uuid
+  description        String              @db.VarChar(500)
+  outstandingBalance Decimal             @map("outstanding_balance") @db.Decimal(19, 2)
+  version            Int                 @default(1)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "liabilities_tenant_id_fkey")
+  revisions          LiabilityRevision[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, createdAt, id])
+  @@map("liabilities")
+}
+
+model PatrimonialAssetRevision {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  assetId        String           @map("asset_id") @db.Uuid
+  version        Int
+  type           String           @db.VarChar(80)
+  description    String           @db.VarChar(500)
+  estimatedValue Decimal          @map("estimated_value") @db.Decimal(19, 2)
+  valuationDate  DateTime         @map("valuation_date") @db.Date
+  source         String           @db.VarChar(120)
+  actorUserId    String           @map("actor_user_id") @db.Uuid
+  requestId      String           @map("request_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "patrimonial_asset_revisions_tenant_id_fkey")
+  asset          PatrimonialAsset @relation(fields: [tenantId, assetId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "patrimonial_asset_revisions_asset_tenant_fkey")
+  actorUser      User             @relation(fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "patrimonial_asset_revisions_actor_user_id_fkey")
+
+  @@unique([tenantId, assetId, version], map: "patrimonial_asset_revisions_tenant_asset_version_key")
+  @@index([tenantId, assetId, createdAt], map: "patrimonial_asset_revisions_tenant_asset_created_idx")
+  @@map("patrimonial_asset_revisions")
+}
+
+model FinancingRevision {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String            @map("tenant_id") @db.Uuid
+  financingId        String            @map("financing_id") @db.Uuid
+  version            Int
+  description        String            @db.VarChar(500)
+  outstandingBalance Decimal           @map("outstanding_balance") @db.Decimal(19, 2)
+  assetId            String?           @map("asset_id") @db.Uuid
+  actorUserId        String            @map("actor_user_id") @db.Uuid
+  requestId          String            @map("request_id") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "financing_revisions_tenant_id_fkey")
+  financing          Financing         @relation(fields: [tenantId, financingId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "financing_revisions_financing_tenant_fkey")
+  asset              PatrimonialAsset? @relation(fields: [tenantId, assetId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "financing_revisions_asset_tenant_fkey")
+  actorUser          User              @relation(fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "financing_revisions_actor_user_id_fkey")
+
+  @@unique([tenantId, financingId, version], map: "financing_revisions_tenant_financing_version_key")
+  @@index([tenantId, financingId, createdAt], map: "financing_revisions_tenant_financing_created_idx")
+  @@map("financing_revisions")
+}
+
+model LiabilityRevision {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  liabilityId        String    @map("liability_id") @db.Uuid
+  version            Int
+  description        String    @db.VarChar(500)
+  outstandingBalance Decimal   @map("outstanding_balance") @db.Decimal(19, 2)
+  actorUserId        String    @map("actor_user_id") @db.Uuid
+  requestId          String    @map("request_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "liability_revisions_tenant_id_fkey")
+  liability          Liability @relation(fields: [tenantId, liabilityId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "liability_revisions_liability_tenant_fkey")
+  actorUser          User      @relation(fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "liability_revisions_actor_user_id_fkey")
+
+  @@unique([tenantId, liabilityId, version], map: "liability_revisions_tenant_liability_version_key")
+  @@index([tenantId, liabilityId, createdAt], map: "liability_revisions_tenant_liability_created_idx")
+  @@map("liability_revisions")
 }

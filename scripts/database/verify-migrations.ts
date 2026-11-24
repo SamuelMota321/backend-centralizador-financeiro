@@ -153,6 +153,8 @@ try {
           'pluggy_account_snapshots',
           'pluggy_investments',
           'pluggy_investment_movements'
+          , 'patrimonial_assets', 'financing', 'liabilities'
+          , 'patrimonial_asset_revisions', 'financing_revisions', 'liability_revisions'
         )
       ORDER BY c.relname`,
   );
@@ -160,10 +162,10 @@ try {
     ({ owner, row_security, force_row_security }) =>
       owner !== 'cfi_owner' || !row_security || !force_row_security,
   );
-  if (protectedTables.rows.length !== 18 || unsafeTables.length > 0) {
+  if (protectedTables.rows.length !== 24 || unsafeTables.length > 0) {
     throw new Error(
       `Protected table verification failed: ${JSON.stringify({
-        expectedCount: 18,
+        expectedCount: 24,
         actualCount: protectedTables.rows.length,
         unsafeTables,
       })}`,

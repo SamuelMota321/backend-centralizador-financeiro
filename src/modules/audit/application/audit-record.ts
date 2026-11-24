@@ -20,10 +20,18 @@ export const AUDIT_CHANGED_FIELDS = [
   'conditionValue',
   'priority',
   'status',
+  'description',
+  'estimatedValue',
+  'valuationDate',
+  'source',
+  'outstandingBalance',
+  'assetId',
 ] as const;
 
 export type AuditChangedField = (typeof AUDIT_CHANGED_FIELDS)[number];
 export type AuditAction =
+  | 'patrimony_created'
+  | 'patrimony_updated'
   | 'account_updated'
   | 'account_deactivated'
   | 'transaction_created'
@@ -60,7 +68,14 @@ export type AuditRecordProps = Readonly<{
   actorUserId: string;
   action: AuditAction;
   resourceType:
-    'account' | 'transaction' | 'category' | 'category_rule' | 'connection';
+    | 'account'
+    | 'transaction'
+    | 'category'
+    | 'category_rule'
+    | 'connection'
+    | 'patrimonial_asset'
+    | 'financing'
+    | 'liability';
   resourceId: string;
   outcome: 'success';
   requestId: string;
@@ -109,6 +124,13 @@ function isResourceForAction(
   action: AuditAction,
   resourceType: AuditRecordProps['resourceType'],
 ): boolean {
+  if (action === 'patrimony_created' || action === 'patrimony_updated') {
+    return (
+      resourceType === 'patrimonial_asset' ||
+      resourceType === 'financing' ||
+      resourceType === 'liability'
+    );
+  }
   if (action === 'connection_lifecycle_updated') {
     return resourceType === 'connection';
   }
@@ -136,6 +158,30 @@ function isValidMetadata(
   action: AuditAction,
   metadata: AuditMetadata,
 ): boolean {
+  if (action === 'patrimony_created' || action === 'patrimony_updated') {
+    if (
+      !hasOnlyKey(metadata, 'changedFields') ||
+      !Array.isArray(metadata.changedFields)
+    )
+      return false;
+    const fields = {
+      patrimonial_asset: [
+        'type',
+        'description',
+        'estimatedValue',
+        'valuationDate',
+        'source',
+      ],
+      financing: ['description', 'outstandingBalance', 'assetId'],
+      liability: ['description', 'outstandingBalance'],
+    };
+    // The resource-specific field set is checked by the database constraint.
+    return metadata.changedFields.every(
+      (field: unknown) =>
+        typeof field === 'string' &&
+        Object.values(fields).some((allowed) => allowed.includes(field)),
+    );
+  }
   if (
     action === 'account_updated' ||
     action === 'transaction_created' ||

@@ -38,7 +38,13 @@ BEGIN
     'public.pluggy_sync_runs'::regclass,
     'public.pluggy_account_snapshots'::regclass,
     'public.pluggy_investments'::regclass,
-    'public.pluggy_investment_movements'::regclass
+    'public.pluggy_investment_movements'::regclass,
+    'public.patrimonial_assets'::regclass,
+    'public.financing'::regclass,
+    'public.liabilities'::regclass,
+    'public.patrimonial_asset_revisions'::regclass,
+    'public.financing_revisions'::regclass,
+    'public.liability_revisions'::regclass
   )
   AND relrowsecurity;
 
@@ -62,7 +68,13 @@ BEGIN
     'public.pluggy_sync_runs'::regclass,
     'public.pluggy_account_snapshots'::regclass,
     'public.pluggy_investments'::regclass,
-    'public.pluggy_investment_movements'::regclass
+    'public.pluggy_investment_movements'::regclass,
+    'public.patrimonial_assets'::regclass,
+    'public.financing'::regclass,
+    'public.liabilities'::regclass,
+    'public.patrimonial_asset_revisions'::regclass,
+    'public.financing_revisions'::regclass,
+    'public.liability_revisions'::regclass
   )
   AND relforcerowsecurity;
 
@@ -87,7 +99,9 @@ BEGIN
       'pluggy_sync_runs',
       'pluggy_account_snapshots',
       'pluggy_investments',
-      'pluggy_investment_movements'
+      'pluggy_investment_movements',
+      'patrimonial_assets', 'financing', 'liabilities',
+      'patrimonial_asset_revisions', 'financing_revisions', 'liability_revisions'
     );
 
   SELECT relowner::regrole INTO audit_owner
@@ -131,9 +145,36 @@ BEGIN
   FROM pg_roles
   WHERE rolname = 'cfi_test';
 
-  IF enabled_count <> 18 OR forced_count <> 18 OR policy_count <> 69 THEN
+  IF enabled_count <> 24 OR forced_count <> 24 OR policy_count <> 90 THEN
     RAISE EXCEPTION 'RLS verification failed: enabled %, forced %, policies %',
       enabled_count, forced_count, policy_count;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_class
+    WHERE oid IN (
+      'public.patrimonial_assets'::regclass, 'public.financing'::regclass,
+      'public.liabilities'::regclass, 'public.patrimonial_asset_revisions'::regclass,
+      'public.financing_revisions'::regclass, 'public.liability_revisions'::regclass
+    ) AND relowner::regrole <> 'cfi_owner'::regrole
+  ) THEN
+    RAISE EXCEPTION 'patrimony tables must belong to cfi_owner';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM unnest(ARRAY['public.patrimonial_assets', 'public.financing', 'public.liabilities']) AS table_name
+    WHERE NOT has_table_privilege('cfi_runtime', table_name, 'SELECT')
+       OR NOT has_table_privilege('cfi_runtime', table_name, 'INSERT')
+       OR NOT has_table_privilege('cfi_runtime', table_name, 'UPDATE')
+       OR has_table_privilege('cfi_runtime', table_name, 'DELETE')
+  ) OR EXISTS (
+    SELECT 1 FROM unnest(ARRAY[
+      'public.patrimonial_asset_revisions', 'public.financing_revisions', 'public.liability_revisions'
+    ]) AS table_name
+    WHERE NOT has_table_privilege('cfi_runtime', table_name, 'SELECT')
+       OR NOT has_table_privilege('cfi_runtime', table_name, 'INSERT')
+       OR has_table_privilege('cfi_runtime', table_name, 'UPDATE')
+       OR has_table_privilege('cfi_runtime', table_name, 'DELETE')
+  ) THEN
+    RAISE EXCEPTION 'patrimony grants are unsafe';
   END IF;
   IF audit_owner <> 'cfi_owner' THEN
     RAISE EXCEPTION 'audit_records owner must be cfi_owner, got %', audit_owner;
@@ -722,3 +763,69 @@ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN
   NULL;
 END $$;
+
+BEGIN;
+SELECT set_config('app.current_tenant_id', :'tenant_id_a', true);
+INSERT INTO public.patrimonial_assets (tenant_id, type, description, estimated_value, valuation_date, source)
+VALUES (:'tenant_id_a'::uuid, 'vehicle', 'Synthetic asset', 100, DATE '2026-11-01', 'user')
+RETURNING id AS patrimonial_asset_id_a \gset
+INSERT INTO public.patrimonial_asset_revisions (
+  tenant_id, asset_id, version, type, description, estimated_value, valuation_date, source, actor_user_id, request_id
+) VALUES (
+  :'tenant_id_a'::uuid, :'patrimonial_asset_id_a'::uuid, 1, 'vehicle', 'Synthetic asset', 100,
+  DATE '2026-11-01', 'user', :'user_id_a'::uuid, gen_random_uuid()
+);
+INSERT INTO public.financing (tenant_id, description, outstanding_balance, asset_id)
+VALUES (:'tenant_id_a'::uuid, 'Synthetic financing', 50, :'patrimonial_asset_id_a'::uuid)
+RETURNING id AS financing_id_a \gset
+INSERT INTO public.financing_revisions (
+  tenant_id, financing_id, version, description, outstanding_balance, asset_id, actor_user_id, request_id
+) VALUES (
+  :'tenant_id_a'::uuid, :'financing_id_a'::uuid, 1, 'Synthetic financing', 50,
+  :'patrimonial_asset_id_a'::uuid, :'user_id_a'::uuid, gen_random_uuid()
+);
+INSERT INTO public.liabilities (tenant_id, description, outstanding_balance)
+VALUES (:'tenant_id_a'::uuid, 'Synthetic liability', 25)
+RETURNING id AS liability_id_a \gset
+INSERT INTO public.liability_revisions (
+  tenant_id, liability_id, version, description, outstanding_balance, actor_user_id, request_id
+) VALUES (
+  :'tenant_id_a'::uuid, :'liability_id_a'::uuid, 1, 'Synthetic liability', 25,
+  :'user_id_a'::uuid, gen_random_uuid()
+);
+INSERT INTO public.audit_records (tenant_id, actor_user_id, action, resource_type, resource_id, outcome, request_id, metadata)
+VALUES (:'tenant_id_a'::uuid, :'user_id_a'::uuid, 'patrimony_created', 'patrimonial_asset',
+  :'patrimonial_asset_id_a'::uuid, 'success', gen_random_uuid(), '{"changedFields":[]}'::jsonb);
+COMMIT;
+
+SELECT set_config('verify.patrimonial_asset_id_a', :'patrimonial_asset_id_a', false);
+SELECT set_config('verify.financing_id_a', :'financing_id_a', false);
+SELECT set_config('verify.liability_id_a', :'liability_id_a', false);
+BEGIN;
+SELECT set_config('app.current_tenant_id', :'tenant_id_b', true);
+DO $$
+BEGIN
+  IF (SELECT count(*) FROM public.patrimonial_assets WHERE id = current_setting('verify.patrimonial_asset_id_a')::uuid) <> 0
+     OR (SELECT count(*) FROM public.financing WHERE id = current_setting('verify.financing_id_a')::uuid) <> 0
+     OR (SELECT count(*) FROM public.liabilities WHERE id = current_setting('verify.liability_id_a')::uuid) <> 0
+     OR (SELECT count(*) FROM public.patrimonial_asset_revisions WHERE asset_id = current_setting('verify.patrimonial_asset_id_a')::uuid) <> 0 THEN
+    RAISE EXCEPTION 'cross-tenant patrimony data was visible';
+  END IF;
+  BEGIN
+    INSERT INTO public.financing (tenant_id, description, outstanding_balance, asset_id)
+    VALUES (current_setting('verify.tenant_id_b')::uuid, 'Foreign link', 1, current_setting('verify.patrimonial_asset_id_a')::uuid);
+    RAISE EXCEPTION 'cross-tenant financing association succeeded';
+  EXCEPTION WHEN foreign_key_violation OR insufficient_privilege THEN
+    NULL;
+  END;
+  BEGIN
+    INSERT INTO public.audit_records (tenant_id, actor_user_id, action, resource_type, resource_id, outcome, request_id, metadata)
+    VALUES (current_setting('verify.tenant_id_b')::uuid, current_setting('verify.user_id_b')::uuid,
+      'patrimony_created', 'patrimonial_asset', current_setting('verify.patrimonial_asset_id_a')::uuid,
+      'success', gen_random_uuid(), '{"changedFields":[]}'::jsonb);
+    RAISE EXCEPTION 'cross-tenant patrimony audit succeeded';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+END $$;
+ROLLBACK;

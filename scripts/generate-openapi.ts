@@ -49,6 +49,8 @@ import {
 } from '../src/modules/ingestion/adapters/inbound/pluggy-initial-import.controller.js';
 import { PluggySyncController } from '../src/modules/sync/adapters/inbound/pluggy-sync.controller.js';
 import { PluggySynchronization } from '../src/modules/sync/application/pluggy-synchronization.js';
+import { PatrimonyController } from '../src/modules/patrimony/adapters/inbound/patrimony.controller.js';
+import { PatrimonyService } from '../src/modules/patrimony/application/patrimony.service.js';
 import { InvestmentController } from '../src/modules/investments/adapters/inbound/investment.controller.js';
 import { InvestmentReadService } from '../src/modules/investments/application/investment-read.service.js';
 
@@ -235,6 +237,7 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     PluggyInitialImportController,
     PluggyInitialImportWorkerController,
     PluggySyncController,
+    PatrimonyController,
     InvestmentController,
   ],
   providers: [
@@ -268,6 +271,7 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     },
     { provide: PluggyInitialImport, useValue: pluggyInitialImport },
     { provide: PluggySynchronization, useValue: pluggySynchronization },
+    { provide: PatrimonyService, useValue: {} },
     { provide: InvestmentReadService, useValue: {} },
     { provide: ConfigService, useValue: { get: () => undefined } },
     { provide: ACCESS_TOKEN_VERIFIER, useValue: accessTokenVerifier },

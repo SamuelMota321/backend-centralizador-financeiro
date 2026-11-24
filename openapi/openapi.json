@@ -11850,6 +11850,1265 @@
         "tags": ["connections"]
       }
     },
+    "/api/v1/patrimony/{collection}": {
+      "post": {
+        "operationId": "PatrimonyController_create",
+        "parameters": [
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": ["assets", "financings", "liabilities"],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "type",
+                      "description",
+                      "estimatedValue",
+                      "valuationDate",
+                      "source"
+                    ],
+                    "properties": {
+                      "type": { "type": "string", "maxLength": 80 },
+                      "description": { "type": "string", "maxLength": 500 },
+                      "estimatedValue": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$"
+                      },
+                      "valuationDate": { "type": "string", "format": "date" },
+                      "source": { "type": "string", "maxLength": 120 }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["description", "outstandingBalance"],
+                    "properties": {
+                      "description": { "type": "string", "maxLength": 500 },
+                      "outstandingBalance": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$"
+                      },
+                      "assetId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["description", "outstandingBalance"],
+                    "properties": {
+                      "description": { "type": "string", "maxLength": 500 },
+                      "outstandingBalance": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "currencyCode",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "type",
+                        "description",
+                        "estimatedValue",
+                        "valuationDate",
+                        "source"
+                      ],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "kind": { "type": "string", "enum": ["asset"] },
+                        "currencyCode": { "type": "string", "enum": ["BRL"] },
+                        "version": { "type": "integer", "minimum": 1 },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "type": { "type": "string", "maxLength": 80 },
+                        "description": { "type": "string", "maxLength": 500 },
+                        "estimatedValue": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "valuationDate": { "type": "string", "format": "date" },
+                        "source": { "type": "string", "maxLength": 120 }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "currencyCode",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "description",
+                        "outstandingBalance",
+                        "assetId"
+                      ],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "kind": { "type": "string", "enum": ["financing"] },
+                        "currencyCode": { "type": "string", "enum": ["BRL"] },
+                        "version": { "type": "integer", "minimum": 1 },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "description": { "type": "string", "maxLength": 500 },
+                        "outstandingBalance": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "assetId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "currencyCode",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "description",
+                        "outstandingBalance"
+                      ],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "kind": { "type": "string", "enum": ["liability"] },
+                        "currencyCode": { "type": "string", "enum": ["BRL"] },
+                        "version": { "type": "integer", "minimum": 1 },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "description": { "type": "string", "maxLength": 500 },
+                        "outstandingBalance": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Create a manual asset, financing, or liability",
+        "tags": ["patrimony"]
+      },
+      "get": {
+        "operationId": "PatrimonyController_list",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": { "type": "number" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": { "type": "number" }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": ["assets", "financings", "liabilities"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["items", "page", "pageSize", "total"],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "kind",
+                              "currencyCode",
+                              "version",
+                              "createdAt",
+                              "updatedAt",
+                              "type",
+                              "description",
+                              "estimatedValue",
+                              "valuationDate",
+                              "source"
+                            ],
+                            "properties": {
+                              "id": { "type": "string", "format": "uuid" },
+                              "kind": { "type": "string", "enum": ["asset"] },
+                              "currencyCode": {
+                                "type": "string",
+                                "enum": ["BRL"]
+                              },
+                              "version": { "type": "integer", "minimum": 1 },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "type": { "type": "string", "maxLength": 80 },
+                              "description": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "estimatedValue": {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                              },
+                              "valuationDate": {
+                                "type": "string",
+                                "format": "date"
+                              },
+                              "source": { "type": "string", "maxLength": 120 }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "kind",
+                              "currencyCode",
+                              "version",
+                              "createdAt",
+                              "updatedAt",
+                              "description",
+                              "outstandingBalance",
+                              "assetId"
+                            ],
+                            "properties": {
+                              "id": { "type": "string", "format": "uuid" },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["financing"]
+                              },
+                              "currencyCode": {
+                                "type": "string",
+                                "enum": ["BRL"]
+                              },
+                              "version": { "type": "integer", "minimum": 1 },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "description": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "outstandingBalance": {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                              },
+                              "assetId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "kind",
+                              "currencyCode",
+                              "version",
+                              "createdAt",
+                              "updatedAt",
+                              "description",
+                              "outstandingBalance"
+                            ],
+                            "properties": {
+                              "id": { "type": "string", "format": "uuid" },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["liability"]
+                              },
+                              "currencyCode": {
+                                "type": "string",
+                                "enum": ["BRL"]
+                              },
+                              "version": { "type": "integer", "minimum": 1 },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "description": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "outstandingBalance": {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "page": { "type": "integer", "minimum": 1 },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "total": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "List manual patrimony records for the authenticated tenant",
+        "tags": ["patrimony"]
+      }
+    },
+    "/api/v1/patrimony/{collection}/{id}": {
+      "get": {
+        "operationId": "PatrimonyController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid" }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": ["assets", "financings", "liabilities"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "currencyCode",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "type",
+                        "description",
+                        "estimatedValue",
+                        "valuationDate",
+                        "source"
+                      ],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "kind": { "type": "string", "enum": ["asset"] },
+                        "currencyCode": { "type": "string", "enum": ["BRL"] },
+                        "version": { "type": "integer", "minimum": 1 },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "type": { "type": "string", "maxLength": 80 },
+                        "description": { "type": "string", "maxLength": 500 },
+                        "estimatedValue": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "valuationDate": { "type": "string", "format": "date" },
+                        "source": { "type": "string", "maxLength": 120 }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "currencyCode",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "description",
+                        "outstandingBalance",
+                        "assetId"
+                      ],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "kind": { "type": "string", "enum": ["financing"] },
+                        "currencyCode": { "type": "string", "enum": ["BRL"] },
+                        "version": { "type": "integer", "minimum": 1 },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "description": { "type": "string", "maxLength": 500 },
+                        "outstandingBalance": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "assetId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "currencyCode",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "description",
+                        "outstandingBalance"
+                      ],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "kind": { "type": "string", "enum": ["liability"] },
+                        "currencyCode": { "type": "string", "enum": ["BRL"] },
+                        "version": { "type": "integer", "minimum": 1 },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "description": { "type": "string", "maxLength": 500 },
+                        "outstandingBalance": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Get a manual patrimony record",
+        "tags": ["patrimony"]
+      },
+      "patch": {
+        "operationId": "PatrimonyController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid" }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": ["assets", "financings", "liabilities"],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [],
+                    "properties": {
+                      "type": { "type": "string", "maxLength": 80 },
+                      "description": { "type": "string", "maxLength": 500 },
+                      "estimatedValue": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$"
+                      },
+                      "valuationDate": { "type": "string", "format": "date" },
+                      "source": { "type": "string", "maxLength": 120 }
+                    },
+                    "minProperties": 1
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [],
+                    "properties": {
+                      "description": { "type": "string", "maxLength": 500 },
+                      "outstandingBalance": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$"
+                      },
+                      "assetId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                      }
+                    },
+                    "minProperties": 1
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [],
+                    "properties": {
+                      "description": { "type": "string", "maxLength": 500 },
+                      "outstandingBalance": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$"
+                      }
+                    },
+                    "minProperties": 1
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "currencyCode",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "type",
+                        "description",
+                        "estimatedValue",
+                        "valuationDate",
+                        "source"
+                      ],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "kind": { "type": "string", "enum": ["asset"] },
+                        "currencyCode": { "type": "string", "enum": ["BRL"] },
+                        "version": { "type": "integer", "minimum": 1 },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "type": { "type": "string", "maxLength": 80 },
+                        "description": { "type": "string", "maxLength": 500 },
+                        "estimatedValue": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "valuationDate": { "type": "string", "format": "date" },
+                        "source": { "type": "string", "maxLength": 120 }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "currencyCode",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "description",
+                        "outstandingBalance",
+                        "assetId"
+                      ],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "kind": { "type": "string", "enum": ["financing"] },
+                        "currencyCode": { "type": "string", "enum": ["BRL"] },
+                        "version": { "type": "integer", "minimum": 1 },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "description": { "type": "string", "maxLength": 500 },
+                        "outstandingBalance": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "assetId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "currencyCode",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "description",
+                        "outstandingBalance"
+                      ],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "kind": { "type": "string", "enum": ["liability"] },
+                        "currencyCode": { "type": "string", "enum": ["BRL"] },
+                        "version": { "type": "integer", "minimum": 1 },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "description": { "type": "string", "maxLength": 500 },
+                        "outstandingBalance": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "Update a manual patrimony record",
+        "tags": ["patrimony"]
+      }
+    },
+    "/api/v1/patrimony/{collection}/{id}/history": {
+      "get": {
+        "operationId": "PatrimonyController_history",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid" }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": ["assets", "financings", "liabilities"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "version",
+                      "actorUserId",
+                      "requestId",
+                      "createdAt",
+                      "state"
+                    ],
+                    "properties": {
+                      "version": { "type": "integer", "minimum": 1 },
+                      "actorUserId": { "type": "string", "format": "uuid" },
+                      "requestId": { "type": "string", "format": "uuid" },
+                      "createdAt": { "type": "string", "format": "date-time" },
+                      "state": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "type",
+                              "description",
+                              "estimatedValue",
+                              "valuationDate",
+                              "source"
+                            ],
+                            "properties": {
+                              "type": { "type": "string", "maxLength": 80 },
+                              "description": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "estimatedValue": {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                              },
+                              "valuationDate": {
+                                "type": "string",
+                                "format": "date"
+                              },
+                              "source": { "type": "string", "maxLength": 120 }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "description",
+                              "outstandingBalance",
+                              "assetId"
+                            ],
+                            "properties": {
+                              "description": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "outstandingBalance": {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                              },
+                              "assetId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["description", "outstandingBalance"],
+                            "properties": {
+                              "description": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "outstandingBalance": {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "List prior and current versions of a manual patrimony record",
+        "tags": ["patrimony"]
+      }
+    },
     "/api/v1/investments": {
       "get": {
         "operationId": "InvestmentController_list",
