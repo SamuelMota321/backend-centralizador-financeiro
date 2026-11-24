@@ -80,6 +80,7 @@ const investmentResponseSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   type: z.string().min(1),
+  status: z.string().min(1).nullish(),
   subtype: z.string().nullish(),
   balance: z.number().finite(),
   currencyCode: z.string().length(3).nullish(),
@@ -90,6 +91,7 @@ const investmentResponseSchema = z.object({
   institution: z.object({ name: z.string().nullish() }).nullish(),
   rate: z.number().finite().nullish(),
   rateType: z.string().nullish(),
+  fixedAnnualRate: z.number().finite().nullish(),
   dueDate: z.iso.datetime().nullish(),
   date: z.iso.datetime().nullish(),
 });
@@ -100,7 +102,7 @@ const investmentsResponseSchema = z.object({
 const investmentMovementResponseSchema = z.object({
   id: z.string().min(1),
   type: z.string().min(1),
-  amount: z.number().finite(),
+  amount: z.number().finite().nullish(),
   date: z.iso.datetime(),
 });
 const investmentMovementsResponseSchema = z.object({
@@ -321,6 +323,7 @@ export class PluggyApiClient implements PluggyProvider {
         id: row.id,
         name: row.name,
         type: row.type,
+        status: row.status ?? null,
         subtype: row.subtype ?? null,
         balance: String(row.balance),
         currencyCode: row.currencyCode ?? null,
@@ -344,6 +347,10 @@ export class PluggyApiClient implements PluggyProvider {
         rate:
           row.rate === undefined || row.rate === null ? null : String(row.rate),
         rateType: row.rateType ?? null,
+        fixedAnnualRate:
+          row.fixedAnnualRate === undefined || row.fixedAnnualRate === null
+            ? null
+            : String(row.fixedAnnualRate),
         maturityDate: row.dueDate ?? null,
         date: row.date ?? null,
       })),
@@ -366,7 +373,7 @@ export class PluggyApiClient implements PluggyProvider {
       movements: parsed.data.results.map((row) => ({
         id: row.id,
         type: row.type,
-        amount: String(row.amount),
+        amount: row.amount == null ? null : String(row.amount),
         date: row.date,
       })),
     };

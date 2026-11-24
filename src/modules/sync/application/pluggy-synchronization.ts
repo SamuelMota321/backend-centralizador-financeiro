@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { TenantContext } from '../../../shared/application/tenant-context.js';
 import type {
   PluggyProvider,
+  PluggyInvestmentMovementSnapshot,
   PluggyInvestmentSnapshot,
   PluggyItemSnapshot,
 } from '../../accounts/application/ports/pluggy-provider.port.js';
@@ -221,7 +222,7 @@ export class PluggySynchronization {
       }
       if (current.status !== 'UPDATED' && current.status !== 'PARTIAL_SUCCESS')
         throw new PluggyUnavailable();
-      const reasons = await this.collect(
+      const collection = await this.collect(
         context,
         run.connectionId,
         reference.providerItemId,
@@ -230,6 +231,7 @@ export class PluggySynchronization {
         ),
         current.lastUpdatedAt ?? this.now(),
       );
+      const reasons = collection.reasons;
       if (
         current.executionStatus === 'PARTIAL_SUCCESS' &&
         reasons.length === 0
@@ -248,6 +250,11 @@ export class PluggySynchronization {
         reasons.length ? 'partial' : 'succeeded',
         reasons,
         current.lastUpdatedAt ?? null,
+        {
+          investmentsComplete: collection.investmentsComplete,
+          movementsComplete: collection.movementsComplete,
+          investments: collection.investments,
+        },
       );
     } catch (error: unknown) {
       if (retryCount >= 3) {
@@ -271,7 +278,15 @@ export class PluggySynchronization {
     itemId: string,
     itemProducts: readonly string[],
     referenceDate: Date,
-  ): Promise<SyncReason[]> {
+  ): Promise<{
+    reasons: SyncReason[];
+    investmentsComplete: boolean;
+    movementsComplete: boolean;
+    investments: readonly Readonly<{
+      investment: PluggyInvestmentSnapshot;
+      movements: readonly PluggyInvestmentMovementSnapshot[];
+    }>[];
+  }> {
     const connection = await this.lifecycle.get(
       context,
       connectionId,
@@ -280,6 +295,11 @@ export class PluggySynchronization {
     const consented = new Set(connection.consent.products);
     const present = new Set(itemProducts);
     const reasons: SyncReason[] = [];
+    let investmentsComplete = false;
+    const investments: Array<{
+      investment: PluggyInvestmentSnapshot;
+      movements: readonly PluggyInvestmentMovementSnapshot[];
+    }> = [];
     const canReadAccounts =
       (consented.has('ACCOUNTS') && present.has('ACCOUNTS')) ||
       (consented.has('CREDIT_CARDS') && present.has('CREDIT_CARDS'));
@@ -387,21 +407,17 @@ export class PluggySynchronization {
         }
         totalPages = result.totalPages;
         for (const investment of result.investments) {
-          const investmentId = await this.repository.saveInvestment(
-            context,
-            connectionId,
-            investment,
-          );
           try {
-            await this.collectInvestmentMovements(
+            const movements = await this.collectInvestmentMovements(
               context,
               connectionId,
-              investmentId,
               investment,
               reasons,
             );
+            investments.push({ investment, movements });
           } catch (error: unknown) {
             if (!(error instanceof PluggyUnavailable)) throw error;
+            investments.push({ investment, movements: [] });
             reasons.push({
               dataType: 'investment_transactions',
               code: 'failed',
@@ -410,12 +426,27 @@ export class PluggySynchronization {
         }
         page += 1;
       } while (page <= totalPages);
+      investmentsComplete = !reasons.some(
+        (reason) => reason.dataType === 'investments',
+      );
     }
-    return [
-      ...new Map(
-        reasons.map((reason) => [`${reason.dataType}:${reason.code}`, reason]),
-      ).values(),
-    ];
+    return {
+      reasons: [
+        ...new Map(
+          reasons.map((reason) => [
+            `${reason.dataType}:${reason.code}`,
+            reason,
+          ]),
+        ).values(),
+      ],
+      investmentsComplete,
+      movementsComplete:
+        investmentsComplete &&
+        !reasons.some(
+          (reason) => reason.dataType === 'investment_transactions',
+        ),
+      investments,
+    };
   }
 
   private async collectTransactions(
@@ -490,12 +521,12 @@ export class PluggySynchronization {
   private async collectInvestmentMovements(
     context: TenantContext,
     connectionId: string,
-    investmentId: string,
     investment: PluggyInvestmentSnapshot,
     reasons: SyncReason[],
-  ): Promise<void> {
+  ): Promise<readonly PluggyInvestmentMovementSnapshot[]> {
     let page = 1;
     let totalPages = 1;
+    const movements: PluggyInvestmentMovementSnapshot[] = [];
     do {
       if (
         !(await this.eligibility.canStartCollection(
@@ -508,23 +539,17 @@ export class PluggySynchronization {
           dataType: 'investment_transactions',
           code: 'unavailable',
         });
-        return;
+        return [];
       }
       const result = await this.provider.listInvestmentMovements(
         investment.id,
         page,
       );
       totalPages = result.totalPages;
-      for (const movement of result.movements) {
-        await this.repository.saveMovement(
-          context,
-          connectionId,
-          investmentId,
-          movement,
-        );
-      }
+      movements.push(...result.movements);
       page += 1;
     } while (page <= totalPages);
+    return movements;
   }
 }
 

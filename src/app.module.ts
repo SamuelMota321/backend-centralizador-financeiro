@@ -8,6 +8,7 @@ import { IdentityModule } from './modules/identity/identity.module.js';
 import { IngestionModule } from './modules/ingestion/ingestion.module.js';
 import { TransactionsModule } from './modules/transactions/transactions.module.js';
 import { SyncModule } from './modules/sync/sync.module.js';
+import { InvestmentsModule } from './modules/investments/investments.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SyncModule } from './modules/sync/sync.module.js';
     TransactionsModule,
     IngestionModule,
     SyncModule,
+    InvestmentsModule,
     HealthModule,
   ],
 })

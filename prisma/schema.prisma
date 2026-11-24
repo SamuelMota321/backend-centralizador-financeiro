@@ -459,6 +459,8 @@ model PluggySyncRun {
   civilDate          DateTime?           @map("civil_date") @db.Date
   status             PluggySyncRunStatus @default(QUEUED)
   reasons            Json                @default("[]") @db.JsonB
+  investmentsComplete Boolean            @default(false) @map("investments_complete")
+  movementsComplete   Boolean            @default(false) @map("movements_complete")
   referenceDate      DateTime?           @map("reference_date") @db.Timestamptz(3)
   acceptedAt         DateTime            @default(now()) @map("accepted_at") @db.Timestamptz(3)
   startedAt          DateTime?           @map("started_at") @db.Timestamptz(3)
@@ -502,6 +504,7 @@ model PluggyInvestment {
   providerId        String                     @map("provider_id") @db.VarChar(255)
   name              String                     @db.VarChar(255)
   type              String                     @db.VarChar(80)
+  status            String?                    @db.VarChar(30)
   subtype           String?                    @db.VarChar(80)
   balance           Decimal                    @db.Decimal(19, 2)
   currencyCode      String?                    @map("currency_code") @db.VarChar(3)
@@ -512,8 +515,10 @@ model PluggyInvestment {
   institutionName   String?                    @map("institution_name") @db.VarChar(255)
   rate              Decimal?                   @db.Decimal(19, 8)
   rateType          String?                    @map("rate_type") @db.VarChar(80)
+  fixedAnnualRate   Decimal?                   @map("fixed_annual_rate") @db.Decimal(19, 8)
   maturityDate      DateTime?                  @map("maturity_date") @db.Date
   referenceDate     DateTime?                  @map("reference_date") @db.Timestamptz(3)
+  lastSeenRunId     String?                    @map("last_seen_run_id") @db.Uuid
   updatedAt         DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant            Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "pluggy_investments_tenant_id_fkey")
   connection        FinancialConnection        @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "pluggy_investments_connection_tenant_fkey")
@@ -521,6 +526,7 @@ model PluggyInvestment {
 
   @@unique([tenantId, id], map: "pluggy_investments_tenant_id_id_key")
   @@unique([tenantId, connectionId, providerId], map: "pluggy_investments_identity_key")
+  @@index([tenantId, connectionId, lastSeenRunId], map: "pluggy_investments_seen_run_idx")
   @@map("pluggy_investments")
 }
 
@@ -531,14 +537,16 @@ model PluggyInvestmentMovement {
   investmentId   String              @map("investment_id") @db.Uuid
   providerId     String              @map("provider_id") @db.VarChar(255)
   type           String              @db.VarChar(80)
-  amount         Decimal             @db.Decimal(19, 2)
+  amount         Decimal?            @db.Decimal(19, 2)
   occurredAt     DateTime            @map("occurred_at") @db.Timestamptz(3)
+  lastSeenRunId  String?             @map("last_seen_run_id") @db.Uuid
   updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "pluggy_investment_movements_tenant_id_fkey")
   connection     FinancialConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "pluggy_investment_movements_connection_tenant_fkey")
   investment     PluggyInvestment    @relation(fields: [tenantId, investmentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "pluggy_investment_movements_investment_tenant_fkey")
 
   @@unique([tenantId, connectionId, investmentId, providerId], map: "pluggy_investment_movements_identity_key")
+  @@index([tenantId, investmentId, lastSeenRunId], map: "pluggy_investment_movements_seen_run_idx")
   @@map("pluggy_investment_movements")
 }
 

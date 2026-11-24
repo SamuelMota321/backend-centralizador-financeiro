@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
+  PluggyInvestmentMovementSnapshot,
+  PluggyInvestmentSnapshot,
   PluggyItemSnapshot,
   PluggyProvider,
 } from '../../accounts/application/ports/pluggy-provider.port.js';
@@ -44,8 +46,6 @@ function fixture() {
     releaseRetry: vi.fn(() => Promise.resolve()),
     mappedAccounts: vi.fn(() => Promise.resolve(new Map())),
     saveAccount: vi.fn(() => Promise.resolve()),
-    saveInvestment: vi.fn(() => Promise.resolve(runId)),
-    saveMovement: vi.fn(() => Promise.resolve()),
   };
   const lifecycle = {
     getCollectionReference: vi.fn(() =>
@@ -77,7 +77,16 @@ function fixture() {
     updateItem: vi.fn(() => Promise.resolve(item)),
     listAccounts: vi.fn(() => Promise.resolve({ totalPages: 0, accounts: [] })),
     listInvestments: vi.fn(() =>
-      Promise.resolve({ totalPages: 0, investments: [] }),
+      Promise.resolve({
+        totalPages: 0,
+        investments: [] as PluggyInvestmentSnapshot[],
+      }),
+    ),
+    listInvestmentMovements: vi.fn(() =>
+      Promise.resolve({
+        totalPages: 0,
+        movements: [] as PluggyInvestmentMovementSnapshot[],
+      }),
     ),
   };
   const queue = { publishSync: vi.fn(() => Promise.resolve()) };
@@ -135,6 +144,137 @@ describe('PluggySynchronization', () => {
         { dataType: 'investment_transactions', code: 'unavailable' },
       ],
       now,
+      { investmentsComplete: false, movementsComplete: false, investments: [] },
+    );
+  });
+
+  it('marks investment collection complete only after all position and movement pages succeed', async () => {
+    const { synchronization, provider, repository, lifecycle } = fixture();
+    lifecycle.get.mockResolvedValue({
+      consent: {
+        products: [
+          'ACCOUNTS',
+          'TRANSACTIONS',
+          'INVESTMENTS',
+          'INVESTMENTS_TRANSACTIONS',
+        ],
+      },
+    });
+    const investment = {
+      id: 'fixture-investment',
+      name: 'CDB sintético',
+      type: 'FIXED_INCOME',
+      status: 'ACTIVE',
+      subtype: 'CDB',
+      balance: '100.00',
+      currencyCode: 'BRL',
+      quantity: null,
+      amount: null,
+      amountOriginal: '90.00',
+      amountProfit: null,
+      institutionName: null,
+      rate: '110',
+      rateType: 'CDI',
+      fixedAnnualRate: '10.5',
+      maturityDate: null,
+      date: now.toISOString(),
+    };
+    provider.listInvestments.mockResolvedValue({
+      totalPages: 1,
+      investments: [investment],
+    });
+    provider.listInvestmentMovements.mockResolvedValue({
+      totalPages: 1,
+      movements: [
+        {
+          id: 'fixture-movement',
+          type: 'BUY',
+          amount: null,
+          date: now.toISOString(),
+        },
+      ],
+    });
+    await synchronization.processJob(
+      { runId, tenantId: context.tenantId, userId: context.userId },
+      0,
+    );
+    expect(repository.finish).toHaveBeenCalledWith(
+      context,
+      runId,
+      'succeeded',
+      [],
+      now,
+      {
+        investmentsComplete: true,
+        movementsComplete: true,
+        investments: [
+          {
+            investment,
+            movements: [
+              {
+                id: 'fixture-movement',
+                type: 'BUY',
+                amount: null,
+                date: now.toISOString(),
+              },
+            ],
+          },
+        ],
+      },
+    );
+  });
+
+  it('keeps movement availability incomplete when its endpoint fails', async () => {
+    const { synchronization, provider, repository, lifecycle } = fixture();
+    lifecycle.get.mockResolvedValue({
+      consent: { products: ['INVESTMENTS', 'INVESTMENTS_TRANSACTIONS'] },
+    });
+    const investment = {
+      id: 'fixture-investment',
+      name: 'Ativo sintético',
+      type: 'ETF',
+      status: 'ACTIVE',
+      subtype: null,
+      balance: '100.00',
+      currencyCode: 'BRL',
+      quantity: null,
+      amount: null,
+      amountOriginal: null,
+      amountProfit: null,
+      institutionName: null,
+      rate: null,
+      rateType: null,
+      fixedAnnualRate: null,
+      maturityDate: null,
+      date: now.toISOString(),
+    };
+    provider.listInvestments.mockResolvedValue({
+      totalPages: 1,
+      investments: [investment],
+    });
+    provider.listInvestmentMovements.mockRejectedValue(new PluggyUnavailable());
+    await synchronization.processJob(
+      { runId, tenantId: context.tenantId, userId: context.userId },
+      3,
+    );
+    expect(repository.finish).toHaveBeenCalledWith(
+      context,
+      runId,
+      'partial',
+      expect.arrayContaining([
+        { dataType: 'investment_transactions', code: 'failed' },
+      ]),
+      now,
+      {
+        investmentsComplete: true,
+        movementsComplete: false,
+        investments: [
+          {
+            investment,
+            movements: [],
+          },
+        ],
+      },
     );
   });
 
@@ -210,6 +350,7 @@ describe('PluggySynchronization', () => {
         { dataType: 'investment_transactions', code: 'unavailable' },
       ],
       now,
+      { investmentsComplete: false, movementsComplete: false, investments: [] },
     );
   });
 });

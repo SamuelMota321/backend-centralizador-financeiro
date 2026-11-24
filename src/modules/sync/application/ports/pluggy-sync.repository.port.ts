@@ -33,6 +33,14 @@ export interface PluggySyncRepository {
     status: 'action_required' | 'succeeded' | 'partial' | 'failed',
     reasons: readonly SyncReason[],
     referenceDate: Date | null,
+    collection?: Readonly<{
+      investmentsComplete: boolean;
+      movementsComplete: boolean;
+      investments: readonly Readonly<{
+        investment: PluggyInvestmentSnapshot;
+        movements: readonly PluggyInvestmentMovementSnapshot[];
+      }>[];
+    }>,
   ): Promise<void>;
   listDailyTargets(): Promise<readonly SyncTarget[]>;
   pruneExpiredRuns(): Promise<number>;
@@ -46,15 +54,4 @@ export interface PluggySyncRepository {
     context: TenantContext,
     connectionId: string,
   ): Promise<ReadonlyMap<string, string>>;
-  saveInvestment(
-    context: TenantContext,
-    connectionId: string,
-    investment: PluggyInvestmentSnapshot,
-  ): Promise<string>;
-  saveMovement(
-    context: TenantContext,
-    connectionId: string,
-    investmentId: string,
-    movement: PluggyInvestmentMovementSnapshot,
-  ): Promise<void>;
 }

@@ -107,6 +107,8 @@ describe('PluggyApiClient', () => {
                     id: '364aa078-983d-4f3d-a28e-fb5575ddc3ee',
                     name: 'Ativo sintético',
                     type: 'ETF',
+                    status: 'ACTIVE',
+                    fixedAnnualRate: 10.5,
                     balance: 118.4,
                     dueDate: null,
                   },
@@ -122,7 +124,7 @@ describe('PluggyApiClient', () => {
                 {
                   id: '464aa078-983d-4f3d-a28e-fb5575ddc3ee',
                   type: 'BUY',
-                  amount: 118.4,
+                  amount: null,
                   date: '2026-10-12T11:22:12.855Z',
                 },
               ],
@@ -156,6 +158,8 @@ describe('PluggyApiClient', () => {
       currencyCode: null,
       maturityDate: null,
       balance: '118.4',
+      status: 'ACTIVE',
+      fixedAnnualRate: '10.5',
     });
     const movements = await client.listInvestmentMovements(
       '364aa078-983d-4f3d-a28e-fb5575ddc3ee',
@@ -163,7 +167,7 @@ describe('PluggyApiClient', () => {
     );
     expect(movements.movements[0]).toMatchObject({
       type: 'BUY',
-      amount: '118.4',
+      amount: null,
     });
   });
 });

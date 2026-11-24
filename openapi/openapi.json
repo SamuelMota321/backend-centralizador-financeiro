@@ -11849,6 +11849,449 @@
         "summary": "Start Connect Widget update for a Pluggy Item",
         "tags": ["connections"]
       }
+    },
+    "/api/v1/investments": {
+      "get": {
+        "operationId": "InvestmentController_list",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": { "type": "number" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": { "type": "number" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "portfolio",
+                    "positions",
+                    "page",
+                    "pageSize",
+                    "total"
+                  ],
+                  "properties": {
+                    "portfolio": {
+                      "type": "object",
+                      "required": [
+                        "availability",
+                        "total",
+                        "totalsByCurrency",
+                        "referenceDate",
+                        "connections"
+                      ],
+                      "properties": {
+                        "availability": {
+                          "type": "string",
+                          "enum": ["complete", "partial", "unavailable"]
+                        },
+                        "total": {
+                          "type": "object",
+                          "nullable": true,
+                          "required": ["currencyCode", "amount"],
+                          "properties": {
+                            "currencyCode": { "type": "string" },
+                            "amount": { "type": "string" }
+                          }
+                        },
+                        "totalsByCurrency": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["currencyCode", "amount"],
+                            "properties": {
+                              "currencyCode": { "type": "string" },
+                              "amount": { "type": "string" }
+                            }
+                          }
+                        },
+                        "referenceDate": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "connections": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["connectionId", "availability"],
+                            "properties": {
+                              "connectionId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "availability": {
+                                "type": "string",
+                                "enum": ["complete", "partial", "unavailable"]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "positions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "connectionId",
+                          "source",
+                          "externalId",
+                          "name",
+                          "assetType",
+                          "subtype",
+                          "providerStatus",
+                          "currencyCode",
+                          "balance",
+                          "quantity",
+                          "investedAmount",
+                          "resultAmount",
+                          "institutionName",
+                          "referenceDate",
+                          "rate",
+                          "rateType",
+                          "fixedAnnualRate",
+                          "maturityDate",
+                          "dataQuality",
+                          "missingFields"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "connectionId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "source": { "type": "string", "enum": ["pluggy"] },
+                          "externalId": { "type": "string" },
+                          "name": { "type": "string" },
+                          "assetType": { "type": "string" },
+                          "subtype": { "type": "string", "nullable": true },
+                          "providerStatus": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "currencyCode": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "balance": { "type": "string" },
+                          "quantity": {
+                            "type": "string",
+                            "nullable": true,
+                            "pattern": "^-?\\d+(?:\\.\\d+)?$"
+                          },
+                          "investedAmount": {
+                            "type": "string",
+                            "nullable": true,
+                            "pattern": "^-?\\d+(?:\\.\\d+)?$"
+                          },
+                          "resultAmount": {
+                            "type": "string",
+                            "nullable": true,
+                            "pattern": "^-?\\d+(?:\\.\\d+)?$"
+                          },
+                          "institutionName": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "referenceDate": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "rate": {
+                            "type": "string",
+                            "nullable": true,
+                            "pattern": "^-?\\d+(?:\\.\\d+)?$"
+                          },
+                          "rateType": { "type": "string", "nullable": true },
+                          "fixedAnnualRate": {
+                            "type": "string",
+                            "nullable": true,
+                            "pattern": "^-?\\d+(?:\\.\\d+)?$"
+                          },
+                          "maturityDate": {
+                            "type": "string",
+                            "format": "date",
+                            "nullable": true
+                          },
+                          "dataQuality": {
+                            "type": "object",
+                            "required": ["availability", "freshness"],
+                            "properties": {
+                              "availability": {
+                                "type": "string",
+                                "enum": ["complete", "partial", "unavailable"]
+                              },
+                              "freshness": {
+                                "type": "string",
+                                "enum": ["current", "stale", "unknown"]
+                              }
+                            }
+                          },
+                          "missingFields": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          }
+                        }
+                      }
+                    },
+                    "page": { "type": "integer", "minimum": 1 },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "total": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "List the authenticated user investment portfolio",
+        "tags": ["investments"]
+      }
+    },
+    "/api/v1/investments/{id}/movements": {
+      "get": {
+        "operationId": "InvestmentController_movements",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": { "type": "number" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": { "type": "number" }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "positionId",
+                    "availability",
+                    "movements",
+                    "page",
+                    "pageSize",
+                    "total"
+                  ],
+                  "properties": {
+                    "positionId": { "type": "string", "format": "uuid" },
+                    "availability": {
+                      "type": "string",
+                      "enum": ["complete", "unavailable"]
+                    },
+                    "movements": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "source",
+                          "externalId",
+                          "type",
+                          "amount",
+                          "currencyCode",
+                          "occurredAt",
+                          "missingFields"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "source": { "type": "string", "enum": ["pluggy"] },
+                          "externalId": { "type": "string" },
+                          "type": { "type": "string" },
+                          "amount": {
+                            "type": "string",
+                            "nullable": true,
+                            "pattern": "^-?\\d+(?:\\.\\d+)?$"
+                          },
+                          "currencyCode": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "occurredAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "missingFields": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          }
+                        }
+                      }
+                    },
+                    "page": { "type": "integer", "minimum": 1 },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "total": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "code", "detail"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "code": { "type": "string" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [{ "auth0": [] }],
+        "summary": "List available movements for one investment position",
+        "tags": ["investments"]
+      }
     }
   },
   "info": {

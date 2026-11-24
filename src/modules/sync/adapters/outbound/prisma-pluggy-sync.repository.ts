@@ -301,9 +301,62 @@ export class PrismaPluggySyncRepository implements PluggySyncRepository {
     status: 'action_required' | 'succeeded' | 'partial' | 'failed',
     reasons: readonly SyncReason[],
     referenceDate: Date | null,
+    collection?: Readonly<{
+      investmentsComplete: boolean;
+      movementsComplete: boolean;
+      investments: readonly Readonly<{
+        investment: PluggyInvestmentSnapshot;
+        movements: readonly PluggyInvestmentMovementSnapshot[];
+      }>[];
+    }>,
   ): Promise<void> {
     await this.tenantTransaction.run(context, async (transaction) => {
-      await transaction.pluggySyncRun.updateMany({
+      const run = await transaction.pluggySyncRun.findFirst({
+        where: {
+          id: runId,
+          tenantId: context.tenantId,
+          ownerUserId: context.userId,
+          status: { in: activeStatuses },
+        },
+        select: { connectionId: true },
+      });
+      if (!run) return;
+      let publishInvestments = Boolean(collection?.investmentsComplete);
+      if (publishInvestments) {
+        const rows = await transaction.$queryRaw<
+          {
+            status: string;
+            consent_status: string | null;
+            consent_products: string[];
+            consent_expires_at: Date | null;
+            consent_revoked_at: Date | null;
+          }[]
+        >`
+          SELECT status::text, consent_status::text, consent_products,
+                 consent_expires_at, consent_revoked_at
+          FROM public.connections
+          WHERE id = ${run.connectionId}::uuid
+            AND tenant_id = ${context.tenantId}::uuid
+            AND owner_user_id = ${context.userId}::uuid
+          FOR UPDATE
+        `;
+        const connection = rows[0];
+        publishInvestments = Boolean(
+          connection &&
+          ['connected', 'partially_available'].includes(connection.status) &&
+          connection.consent_status === 'granted' &&
+          !connection.consent_revoked_at &&
+          (!connection.consent_expires_at ||
+            connection.consent_expires_at > new Date()) &&
+          ['INVESTMENTS', 'INVESTMENTS_TRANSACTIONS'].every((product) =>
+            connection.consent_products.includes(product),
+          ),
+        );
+      }
+      const consentChanged = Boolean(
+        collection?.investmentsComplete && !publishInvestments,
+      );
+      const finished = await transaction.pluggySyncRun.updateMany({
         where: {
           id: runId,
           tenantId: context.tenantId,
@@ -311,14 +364,50 @@ export class PrismaPluggySyncRepository implements PluggySyncRepository {
           status: { in: activeStatuses },
         },
         data: {
-          status: status.toUpperCase() as PluggySyncRunStatus,
-          reasons,
+          status: (consentChanged && status === 'succeeded'
+            ? PluggySyncRunStatus.PARTIAL
+            : status.toUpperCase()) as PluggySyncRunStatus,
+          reasons: consentChanged
+            ? [
+                ...reasons.filter(
+                  (reason) =>
+                    reason.dataType !== 'investments' &&
+                    reason.dataType !== 'investment_transactions',
+                ),
+                { dataType: 'investments', code: 'unavailable' },
+                { dataType: 'investment_transactions', code: 'unavailable' },
+              ]
+            : reasons,
           referenceDate,
+          investmentsComplete: publishInvestments,
+          movementsComplete:
+            publishInvestments && Boolean(collection?.movementsComplete),
           completedAt: new Date(),
           retentionExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           leaseUntil: null,
         },
       });
+      if (finished.count !== 1 || !publishInvestments || !collection) return;
+      for (const { investment, movements } of collection.investments) {
+        const investmentId = await this.saveInvestment(
+          transaction,
+          context.tenantId,
+          run.connectionId,
+          runId,
+          investment,
+        );
+        if (!collection.movementsComplete) continue;
+        for (const movement of movements) {
+          await this.saveMovement(
+            transaction,
+            context.tenantId,
+            run.connectionId,
+            investmentId,
+            runId,
+            movement,
+          );
+        }
+      }
     });
   }
 
@@ -402,81 +491,85 @@ export class PrismaPluggySyncRepository implements PluggySyncRepository {
     });
   }
 
-  async saveInvestment(
-    context: TenantContext,
+  private async saveInvestment(
+    transaction: Prisma.TransactionClient,
+    tenantId: string,
     connectionId: string,
+    runId: string,
     investment: PluggyInvestmentSnapshot,
   ): Promise<string> {
-    return this.tenantTransaction.run(context, async (transaction) => {
-      const data = {
-        name: investment.name,
-        type: investment.type,
-        subtype: investment.subtype,
-        balance: investment.balance,
-        currencyCode: investment.currencyCode,
-        quantity: investment.quantity,
-        amount: investment.amount,
-        amountOriginal: investment.amountOriginal,
-        amountProfit: investment.amountProfit,
-        institutionName: investment.institutionName,
-        rate: investment.rate,
-        rateType: investment.rateType,
-        maturityDate: investment.maturityDate
-          ? new Date(investment.maturityDate)
-          : null,
-        referenceDate: investment.date ? new Date(investment.date) : null,
-      };
-      const row = await transaction.pluggyInvestment.upsert({
-        where: {
-          tenantId_connectionId_providerId: {
-            tenantId: context.tenantId,
-            connectionId,
-            providerId: investment.id,
-          },
-        },
-        create: {
-          tenantId: context.tenantId,
+    const data = {
+      name: investment.name,
+      type: investment.type,
+      status: investment.status,
+      subtype: investment.subtype,
+      balance: investment.balance,
+      currencyCode: investment.currencyCode,
+      quantity: investment.quantity,
+      amount: investment.amount,
+      amountOriginal: investment.amountOriginal,
+      amountProfit: investment.amountProfit,
+      institutionName: investment.institutionName,
+      rate: investment.rate,
+      rateType: investment.rateType,
+      fixedAnnualRate: investment.fixedAnnualRate,
+      maturityDate: investment.maturityDate
+        ? new Date(investment.maturityDate)
+        : null,
+      referenceDate: investment.date ? new Date(investment.date) : null,
+      lastSeenRunId: runId,
+    };
+    const row = await transaction.pluggyInvestment.upsert({
+      where: {
+        tenantId_connectionId_providerId: {
+          tenantId,
           connectionId,
           providerId: investment.id,
-          ...data,
         },
-        update: data,
-        select: { id: true },
-      });
-      return row.id;
+      },
+      create: {
+        tenantId,
+        connectionId,
+        providerId: investment.id,
+        ...data,
+      },
+      update: data,
+      select: { id: true },
     });
+    return row.id;
   }
 
-  async saveMovement(
-    context: TenantContext,
+  private async saveMovement(
+    transaction: Prisma.TransactionClient,
+    tenantId: string,
     connectionId: string,
     investmentId: string,
+    runId: string,
     movement: PluggyInvestmentMovementSnapshot,
   ): Promise<void> {
-    await this.tenantTransaction.run(context, async (transaction) => {
-      const data = {
-        type: movement.type,
-        amount: movement.amount,
-        occurredAt: new Date(movement.date),
-      };
-      await transaction.pluggyInvestmentMovement.upsert({
-        where: {
-          tenantId_connectionId_investmentId_providerId: {
-            tenantId: context.tenantId,
-            connectionId,
-            investmentId,
-            providerId: movement.id,
-          },
-        },
-        create: {
-          tenantId: context.tenantId,
+    const data = {
+      type: movement.type,
+      amount: movement.amount,
+      occurredAt: new Date(movement.date),
+      lastSeenRunId: runId,
+    };
+    await transaction.pluggyInvestmentMovement.upsert({
+      where: {
+        tenantId_connectionId_investmentId_providerId: {
+          tenantId,
           connectionId,
           investmentId,
           providerId: movement.id,
-          ...data,
         },
-        update: data,
-      });
+      },
+      create: {
+        tenantId,
+        connectionId,
+        investmentId,
+        providerId: movement.id,
+        ...data,
+      },
+      update: data,
     });
   }
 }

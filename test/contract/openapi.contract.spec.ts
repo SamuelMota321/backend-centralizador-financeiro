@@ -34,6 +34,32 @@ describe('OpenAPI contract', () => {
     readFileSync(resolve('openapi/openapi.json'), 'utf8'),
   ) as OpenApiDocument;
 
+  it('publishes authenticated investment portfolio and movement reads', () => {
+    for (const path of [
+      '/api/v1/investments',
+      '/api/v1/investments/{id}/movements',
+    ]) {
+      const operation = document.paths?.[path]?.get;
+      expect(operation, path).toBeDefined();
+      expect(operation?.security).toEqual([{ auth0: [] }]);
+      expect(operation?.responses).toHaveProperty('200');
+      for (const [status, response] of Object.entries(
+        operation?.responses ?? {},
+      )) {
+        if (/^[45]\d\d$/.test(status))
+          expect(response.content).toHaveProperty('application/problem+json');
+      }
+    }
+    const portfolio =
+      document.paths?.['/api/v1/investments']?.get?.responses?.['200']
+        ?.content?.['application/json']?.schema;
+    expect(portfolio?.required).toEqual(
+      expect.arrayContaining(['portfolio', 'positions', 'total']),
+    );
+    expect(portfolio?.properties).toHaveProperty('portfolio');
+    expect(portfolio?.properties).toHaveProperty('positions');
+  });
+
   it('documents authentication and Problem Details for account operations', () => {
     const operations: Array<[string, string]> = [
       ['/api/v1/accounts', 'post'],

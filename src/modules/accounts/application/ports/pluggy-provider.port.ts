@@ -67,6 +67,7 @@ export type PluggyInvestmentSnapshot = Readonly<{
   id: string;
   name: string;
   type: string;
+  status: string | null;
   subtype: string | null;
   balance: string;
   currencyCode: string | null;
@@ -77,6 +78,7 @@ export type PluggyInvestmentSnapshot = Readonly<{
   institutionName: string | null;
   rate: string | null;
   rateType: string | null;
+  fixedAnnualRate: string | null;
   maturityDate: string | null;
   date: string | null;
 }>;
@@ -84,7 +86,7 @@ export type PluggyInvestmentSnapshot = Readonly<{
 export type PluggyInvestmentMovementSnapshot = Readonly<{
   id: string;
   type: string;
-  amount: string;
+  amount: string | null;
   date: string;
 }>;
 
