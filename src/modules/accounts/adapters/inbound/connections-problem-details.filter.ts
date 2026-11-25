@@ -64,6 +64,9 @@ export class ConnectionsProblemDetailsFilter implements ExceptionFilter {
             ...(exception.httpStatus === undefined
               ? {}
               : { httpStatus: exception.httpStatus }),
+            ...(exception.validationIssues === undefined
+              ? {}
+              : { validationIssues: exception.validationIssues }),
           }),
         );
       } else if (exception instanceof QStashUnavailable) {

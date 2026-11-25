@@ -41,7 +41,8 @@ describe('PluggyApiClient', () => {
     });
     await expect(client.listConsents('fixture-item')).rejects.toMatchObject({
       operation: 'list_consents',
-      reason: 'invalid_response',
+      reason: 'schema_mismatch',
+      validationIssues: [{ path: 'results', code: 'invalid_type' }],
     });
     const error = await client
       .getItem('fixture-item')
@@ -246,6 +247,54 @@ describe('PluggyApiClient', () => {
     await expect(client.listConsents(consentItemId)).rejects.toThrow(
       PluggyUnavailable,
     );
+  });
+
+  it('distinguishes malformed consent JSON from a schema mismatch without retaining the body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          url.endsWith('/auth')
+            ? Response.json({ apiKey: 'fixture-api-key' })
+            : new Response('private financial payload', { status: 200 }),
+        ),
+      ),
+    );
+    const config = {
+      get: () => 'fixture-client-credential',
+    } as unknown as ConfigService<Environment, true>;
+
+    const error = await new PluggyApiClient(config)
+      .listConsents(consentItemId)
+      .catch((cause: unknown) => cause);
+
+    expect(error).toMatchObject({
+      operation: 'list_consents',
+      reason: 'invalid_json',
+    });
+    expect(JSON.stringify(error)).not.toContain('private financial payload');
+  });
+
+  it('records only paths and codes for invalid consent fields', async () => {
+    const client = clientWithConsentResponse({
+      openFinancePermissionsGranted: 'private financial payload',
+    });
+
+    const error = await client
+      .listConsents(consentItemId)
+      .catch((cause: unknown) => cause);
+
+    expect(error).toMatchObject({
+      operation: 'list_consents',
+      reason: 'schema_mismatch',
+      validationIssues: [
+        {
+          path: 'results.0.openFinancePermissionsGranted',
+          code: 'invalid_type',
+        },
+      ],
+    });
+    expect(JSON.stringify(error)).not.toContain('private financial payload');
   });
 });
 

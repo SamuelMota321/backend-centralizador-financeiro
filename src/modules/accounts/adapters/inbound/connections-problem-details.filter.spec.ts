@@ -37,6 +37,25 @@ describe('ConnectionsProblemDetailsFilter diagnostics', () => {
       }),
     );
 
+    const schemaError = new PluggyUnavailable(
+      'list_consents',
+      'schema_mismatch',
+      undefined,
+      [{ path: 'results.0.products', code: 'invalid_type' }],
+    );
+    schemaError.message = 'secret consent payload';
+    filter.catch(schemaError, host);
+    expect(warn).toHaveBeenLastCalledWith(
+      JSON.stringify({
+        integration: 'pluggy',
+        operation: 'list_consents',
+        reason: 'schema_mismatch',
+        validationIssues: [
+          { path: 'results.0.products', code: 'invalid_type' },
+        ],
+      }),
+    );
+
     const qstash = new QStashUnavailable('publish_sync', 'publish_failed');
     qstash.message = 'secret queue response';
     filter.catch(qstash, host);

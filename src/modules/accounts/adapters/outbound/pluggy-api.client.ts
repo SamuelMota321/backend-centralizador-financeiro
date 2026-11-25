@@ -121,8 +121,14 @@ export class PluggyUnavailable extends Error {
       | 'network'
       | 'http_status'
       | 'invalid_response'
+      | 'invalid_json'
+      | 'schema_mismatch'
       | 'unknown' = 'unknown',
     readonly httpStatus?: number,
+    readonly validationIssues?: readonly Readonly<{
+      path: string;
+      code: string;
+    }>[],
   ) {
     super();
   }
@@ -266,11 +272,23 @@ export class PluggyApiClient implements PluggyProvider {
         response.status,
       );
 
-    const parsed = consentsResponseSchema.safeParse(
-      await readJson(response, 'list_consents'),
-    );
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new PluggyUnavailable('list_consents', 'invalid_json');
+    }
+    const parsed = consentsResponseSchema.safeParse(body);
     if (!parsed.success)
-      throw new PluggyUnavailable('list_consents', 'invalid_response');
+      throw new PluggyUnavailable(
+        'list_consents',
+        'schema_mismatch',
+        undefined,
+        parsed.error.issues.map(({ path, code }) => ({
+          path: path.join('.'),
+          code,
+        })),
+      );
     return parsed.data.results.map((consent) => ({
       id: consent.id,
       itemId: consent.itemId,
