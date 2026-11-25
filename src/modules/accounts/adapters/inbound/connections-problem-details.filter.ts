@@ -54,6 +54,28 @@ export class ConnectionsProblemDetailsFilter implements ExceptionFilter {
       .status(problem.status)
       .type('application/problem+json')
       .json(problem);
+    if (problem.status === 503) {
+      if (exception instanceof PluggyUnavailable) {
+        this.logger.warn(
+          JSON.stringify({
+            integration: 'pluggy',
+            operation: exception.operation,
+            reason: exception.reason,
+            ...(exception.httpStatus === undefined
+              ? {}
+              : { httpStatus: exception.httpStatus }),
+          }),
+        );
+      } else if (exception instanceof QStashUnavailable) {
+        this.logger.warn(
+          JSON.stringify({
+            integration: 'qstash',
+            operation: exception.operation,
+            reason: exception.reason,
+          }),
+        );
+      }
+    }
     if (problem.status === 500) {
       const details =
         exception instanceof Prisma.PrismaClientKnownRequestError

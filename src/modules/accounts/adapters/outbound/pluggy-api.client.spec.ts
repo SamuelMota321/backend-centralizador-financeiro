@@ -11,6 +11,46 @@ afterEach(() => {
 });
 
 describe('PluggyApiClient', () => {
+  it('classifies completion lookup failures without retaining provider payloads', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string) =>
+        Promise.resolve(
+          input.endsWith('/auth')
+            ? new Response(JSON.stringify({ apiKey: 'fixture-api-key' }))
+            : input.includes('/items/')
+              ? new Response('private provider response', { status: 502 })
+              : new Response(
+                  JSON.stringify({ results: 'private provider response' }),
+                ),
+        ),
+      ),
+    );
+    const config = {
+      get: (key: string) =>
+        key === 'PLUGGY_CLIENT_ID' || key === 'PLUGGY_CLIENT_SECRET'
+          ? 'fixture-credential'
+          : undefined,
+    } as unknown as ConfigService<Environment, true>;
+    const client = new PluggyApiClient(config);
+
+    await expect(client.getItem('fixture-item')).rejects.toMatchObject({
+      operation: 'get_item',
+      reason: 'http_status',
+      httpStatus: 502,
+    });
+    await expect(client.listConsents('fixture-item')).rejects.toMatchObject({
+      operation: 'list_consents',
+      reason: 'invalid_response',
+    });
+    const error = await client
+      .getItem('fixture-item')
+      .catch((cause: unknown) => cause);
+    expect(error).toBeInstanceOf(PluggyUnavailable);
+    expect(JSON.stringify(error)).not.toContain('private provider response');
+    expect(JSON.stringify(error)).not.toContain('fixture-credential');
+  });
+
   it('keeps application credentials server-side and returns only a short-lived Connect Token', async () => {
     const requests: Array<{ url: string; init: RequestInit | undefined }> = [];
     const fetchMock = vi.fn(
