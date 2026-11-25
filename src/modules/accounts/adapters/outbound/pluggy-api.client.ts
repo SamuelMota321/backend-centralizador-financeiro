@@ -112,6 +112,20 @@ const investmentMovementsResponseSchema = z.object({
 
 export class PluggyUnavailable extends Error {
   override readonly name = 'PluggyUnavailable';
+
+  constructor(
+    readonly operation:
+      'authenticate' | 'get_item' | 'list_consents' | 'other' = 'other',
+    readonly reason:
+      | 'missing_config'
+      | 'network'
+      | 'http_status'
+      | 'invalid_response'
+      | 'unknown' = 'unknown',
+    readonly httpStatus?: number,
+  ) {
+    super();
+  }
 }
 
 export class PluggyActionRequired extends Error {
@@ -169,12 +183,18 @@ export class PluggyApiClient implements PluggyProvider {
   async getItem(itemId: string): Promise<PluggyItemSnapshot | null> {
     const response = await this.requestResponse(
       `/items/${encodeURIComponent(itemId)}`,
+      {},
+      'get_item',
     );
     if (response.status === 404) return null;
-    if (!response.ok) throw new PluggyUnavailable();
+    if (!response.ok)
+      throw new PluggyUnavailable('get_item', 'http_status', response.status);
 
-    const parsed = itemResponseSchema.safeParse(await readJson(response));
-    if (!parsed.success) throw new PluggyUnavailable();
+    const parsed = itemResponseSchema.safeParse(
+      await readJson(response, 'get_item'),
+    );
+    if (!parsed.success)
+      throw new PluggyUnavailable('get_item', 'invalid_response');
     return {
       ...parsed.data,
       unavailableProducts: unavailableProducts(parsed.data.statusDetail),
@@ -236,11 +256,21 @@ export class PluggyApiClient implements PluggyProvider {
   ): Promise<readonly PluggyConsentSnapshot[]> {
     const response = await this.requestResponse(
       `/consents?itemId=${encodeURIComponent(itemId)}`,
+      {},
+      'list_consents',
     );
-    if (!response.ok) throw new PluggyUnavailable();
+    if (!response.ok)
+      throw new PluggyUnavailable(
+        'list_consents',
+        'http_status',
+        response.status,
+      );
 
-    const parsed = consentsResponseSchema.safeParse(await readJson(response));
-    if (!parsed.success) throw new PluggyUnavailable();
+    const parsed = consentsResponseSchema.safeParse(
+      await readJson(response, 'list_consents'),
+    );
+    if (!parsed.success)
+      throw new PluggyUnavailable('list_consents', 'invalid_response');
     return parsed.data.results.map((consent) => ({
       id: consent.id,
       itemId: consent.itemId,
@@ -388,20 +418,22 @@ export class PluggyApiClient implements PluggyProvider {
   private async requestResponse(
     path: string,
     init: RequestInit = {},
+    operation: PluggyUnavailable['operation'] = 'other',
   ): Promise<Response> {
     const apiKey = await this.getApiKey();
-    const response = await this.send(path, init, apiKey.value);
+    const response = await this.send(path, init, apiKey.value, operation);
     if (response.status !== 401) return response;
 
     if (this.apiKeyCache?.value === apiKey.value) this.apiKeyCache = null;
     const refreshedApiKey = await this.getApiKey();
-    return this.send(path, init, refreshedApiKey.value);
+    return this.send(path, init, refreshedApiKey.value, operation);
   }
 
   private async send(
     path: string,
     init: RequestInit,
     apiKey: string,
+    operation: PluggyUnavailable['operation'],
   ): Promise<Response> {
     try {
       return await fetch(`${PLUGGY_API_URL}${path}`, {
@@ -413,7 +445,7 @@ export class PluggyApiClient implements PluggyProvider {
         },
       });
     } catch {
-      throw new PluggyUnavailable();
+      throw new PluggyUnavailable(operation, 'network');
     }
   }
 
@@ -441,7 +473,8 @@ export class PluggyApiClient implements PluggyProvider {
     const clientSecret = this.config.get('PLUGGY_CLIENT_SECRET', {
       infer: true,
     });
-    if (!clientId || !clientSecret) throw new PluggyUnavailable();
+    if (!clientId || !clientSecret)
+      throw new PluggyUnavailable('authenticate', 'missing_config');
 
     const requestStartedAt = Date.now();
     let response: Response;
@@ -452,12 +485,20 @@ export class PluggyApiClient implements PluggyProvider {
         body: JSON.stringify({ clientId, clientSecret }),
       });
     } catch {
-      throw new PluggyUnavailable();
+      throw new PluggyUnavailable('authenticate', 'network');
     }
-    if (!response.ok) throw new PluggyUnavailable();
+    if (!response.ok)
+      throw new PluggyUnavailable(
+        'authenticate',
+        'http_status',
+        response.status,
+      );
 
-    const parsed = apiKeyResponseSchema.safeParse(await readJson(response));
-    if (!parsed.success) throw new PluggyUnavailable();
+    const parsed = apiKeyResponseSchema.safeParse(
+      await readJson(response, 'authenticate'),
+    );
+    if (!parsed.success)
+      throw new PluggyUnavailable('authenticate', 'invalid_response');
     return {
       value: parsed.data.apiKey,
       expiresAt: requestStartedAt + API_KEY_LIFETIME_MS,
@@ -510,10 +551,13 @@ function safeTransactionsNextPath(next: string): string {
   return `${parsed.pathname}${parsed.search}`;
 }
 
-async function readJson(response: Response): Promise<unknown> {
+async function readJson(
+  response: Response,
+  operation: PluggyUnavailable['operation'] = 'other',
+): Promise<unknown> {
   try {
     return await response.json();
   } catch {
-    throw new PluggyUnavailable();
+    throw new PluggyUnavailable(operation, 'invalid_response');
   }
 }

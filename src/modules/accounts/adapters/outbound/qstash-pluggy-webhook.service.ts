@@ -14,6 +14,18 @@ export type PluggyInitialImportJob = Readonly<{
 
 export class QStashUnavailable extends Error {
   override readonly name = 'QStashUnavailable';
+
+  constructor(
+    readonly operation:
+      | 'publish_event'
+      | 'publish_initial_import'
+      | 'publish_sync'
+      | 'other' = 'other',
+    readonly reason:
+      'missing_config' | 'publish_failed' | 'unknown' = 'unknown',
+  ) {
+    super();
+  }
 }
 
 @Injectable()
@@ -23,19 +35,21 @@ export class QStashPluggyWebhookService {
   async publish(event: PluggyWebhookEvent): Promise<void> {
     const token = this.config.get('QSTASH_TOKEN', { infer: true });
     const baseUrl = this.config.get('QSTASH_URL', { infer: true });
-    if (!token || !baseUrl) throw new QStashUnavailable();
+    if (!token || !baseUrl)
+      throw new QStashUnavailable('publish_event', 'missing_config');
     const client = new Client({
       baseUrl,
       token,
     });
+    const url = this.workerUrl('pluggy-events');
     try {
       await client.publishJSON({
-        url: this.workerUrl('pluggy-events'),
+        url,
         body: event,
         redact: { body: true, header: true },
       });
     } catch {
-      throw new QStashUnavailable();
+      throw new QStashUnavailable('publish_event', 'publish_failed');
     }
   }
 
@@ -45,38 +59,42 @@ export class QStashPluggyWebhookService {
   ): Promise<void> {
     const token = this.config.get('QSTASH_TOKEN', { infer: true });
     const baseUrl = this.config.get('QSTASH_URL', { infer: true });
-    if (!token || !baseUrl) throw new QStashUnavailable();
+    if (!token || !baseUrl)
+      throw new QStashUnavailable('publish_initial_import', 'missing_config');
     const client = new Client({ baseUrl, token });
     const body: PluggyInitialImportJob = {
       runId,
       tenantId: context.tenantId,
       userId: context.userId,
     };
+    const url = this.workerUrl('pluggy-initial-imports');
     try {
       await client.publishJSON({
-        url: this.workerUrl('pluggy-initial-imports'),
+        url,
         body,
         redact: { body: true, header: true },
       });
     } catch {
-      throw new QStashUnavailable();
+      throw new QStashUnavailable('publish_initial_import', 'publish_failed');
     }
   }
 
   async publishSync(job: SyncJob): Promise<void> {
     const token = this.config.get('QSTASH_TOKEN', { infer: true });
     const baseUrl = this.config.get('QSTASH_URL', { infer: true });
-    if (!token || !baseUrl) throw new QStashUnavailable();
+    if (!token || !baseUrl)
+      throw new QStashUnavailable('publish_sync', 'missing_config');
+    const url = this.workerUrl('pluggy-sync-runs');
     try {
       await new Client({ baseUrl, token }).publishJSON({
-        url: this.workerUrl('pluggy-sync-runs'),
+        url,
         body: job,
         retries: 3,
         retryDelay: '660000',
         redact: { body: true, header: true },
       });
     } catch {
-      throw new QStashUnavailable();
+      throw new QStashUnavailable('publish_sync', 'publish_failed');
     }
   }
 
@@ -165,7 +183,7 @@ export class QStashPluggyWebhookService {
       | 'pluggy-daily-sync',
   ): string {
     const baseUrl = this.config.get('PUBLIC_API_BASE_URL', { infer: true });
-    if (!baseUrl) throw new QStashUnavailable();
+    if (!baseUrl) throw new QStashUnavailable('other', 'missing_config');
     return new URL(`/api/v1/internal/jobs/${path}`, baseUrl).toString();
   }
 }
