@@ -5,7 +5,11 @@ import { describe, expect, it } from 'vitest';
 type OpenApiSchema = {
   required?: string[];
   minProperties?: number;
-  properties?: Record<string, { maximum?: number; minimum?: number }>;
+  maximum?: number;
+  minimum?: number;
+  enum?: string[];
+  items?: OpenApiSchema;
+  properties?: Record<string, OpenApiSchema>;
 };
 
 type OpenApiResponse = {
@@ -58,6 +62,33 @@ describe('OpenAPI contract', () => {
     );
     expect(portfolio?.properties).toHaveProperty('portfolio');
     expect(portfolio?.properties).toHaveProperty('positions');
+    const allocation = portfolio?.properties?.portfolio?.properties?.allocation;
+    expect(allocation?.required).toEqual(
+      expect.arrayContaining([
+        'basis',
+        'availability',
+        'knownPositionCount',
+        'includedPositionCount',
+        'excludedKnownPositionCount',
+        'excludedByReason',
+        'currencies',
+      ]),
+    );
+    const currency = allocation?.properties?.currencies?.items;
+    expect(currency?.required).toEqual(
+      expect.arrayContaining([
+        'currencyCode',
+        'denominatorAmount',
+        'byClass',
+        'byInstitution',
+      ]),
+    );
+    expect(
+      currency?.properties?.byClass?.items?.properties?.assetClass?.enum,
+    ).toContain('UNCLASSIFIED');
+    expect(currency?.properties?.byClass?.items?.properties).toHaveProperty(
+      'positions',
+    );
   });
 
   it('publishes authenticated manual patrimony CRUD and history', () => {

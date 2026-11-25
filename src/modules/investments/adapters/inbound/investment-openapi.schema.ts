@@ -11,6 +11,28 @@ const page = {
   pageSize: { type: 'integer', minimum: 1, maximum: 100 },
   total: { type: 'integer', minimum: 0 },
 };
+const allocationMember: SchemaObject = {
+  type: 'object',
+  required: ['id', 'source', 'referenceDate'],
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    source: { type: 'string', enum: ['pluggy'] },
+    referenceDate: { type: 'string', format: 'date-time', nullable: true },
+  },
+};
+const allocationGroup: Record<string, SchemaObject> = {
+  amount: {
+    type: 'string',
+    description: 'Exact summed balance in this currency',
+  },
+  percentage: {
+    type: 'string',
+    pattern: '^\\d+\\.\\d$',
+    description:
+      'Percentage rounded half-up to one decimal; rows are not adjusted to sum to 100.0',
+  },
+  positions: { type: 'array', items: allocationMember },
+};
 
 export const INVESTMENT_PAGE_SCHEMA: SchemaObject = {
   type: 'object',
@@ -24,6 +46,7 @@ export const INVESTMENT_PAGE_SCHEMA: SchemaObject = {
         'totalsByCurrency',
         'referenceDate',
         'connections',
+        'allocation',
       ],
       properties: {
         availability: {
@@ -61,6 +84,120 @@ export const INVESTMENT_PAGE_SCHEMA: SchemaObject = {
               availability: {
                 type: 'string',
                 enum: ['complete', 'partial', 'unavailable'],
+              },
+            },
+          },
+        },
+        allocation: {
+          type: 'object',
+          required: [
+            'basis',
+            'availability',
+            'knownPositionCount',
+            'includedPositionCount',
+            'excludedKnownPositionCount',
+            'excludedByReason',
+            'currencies',
+          ],
+          properties: {
+            basis: {
+              type: 'string',
+              enum: ['active_current_complete_positive_balance'],
+              description:
+                'Only ACTIVE positions with positive net balance, known currency, complete collection and current reference are included',
+            },
+            availability: {
+              type: 'string',
+              enum: ['complete', 'partial', 'unavailable'],
+              description:
+                'Partial when known positions are excluded or any connection is incomplete; unavailable without a positive denominator',
+            },
+            knownPositionCount: { type: 'integer', minimum: 0 },
+            includedPositionCount: { type: 'integer', minimum: 0 },
+            excludedKnownPositionCount: { type: 'integer', minimum: 0 },
+            excludedByReason: {
+              type: 'object',
+              description:
+                'Exclusive counts by first applicable reason: quality, status, balance, currency. Unknown positions at unavailable connections are not counted.',
+              required: [
+                'incomplete_or_stale',
+                'non_active',
+                'non_positive_balance',
+                'unknown_currency',
+              ],
+              properties: {
+                incomplete_or_stale: { type: 'integer', minimum: 0 },
+                non_active: { type: 'integer', minimum: 0 },
+                non_positive_balance: { type: 'integer', minimum: 0 },
+                unknown_currency: { type: 'integer', minimum: 0 },
+              },
+            },
+            currencies: {
+              type: 'array',
+              description:
+                'Independent denominators per currency; no conversion or cross-currency total',
+              items: {
+                type: 'object',
+                required: [
+                  'currencyCode',
+                  'denominatorAmount',
+                  'byClass',
+                  'byInstitution',
+                ],
+                properties: {
+                  currencyCode: { type: 'string' },
+                  denominatorAmount: { type: 'string' },
+                  byClass: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: [
+                        'assetClass',
+                        'amount',
+                        'percentage',
+                        'positions',
+                      ],
+                      properties: {
+                        assetClass: {
+                          type: 'string',
+                          enum: [
+                            'FIXED_INCOME',
+                            'EQUITY',
+                            'ETF',
+                            'MUTUAL_FUND',
+                            'COE',
+                            'SECURITY',
+                            'UNCLASSIFIED',
+                          ],
+                          description:
+                            'OTHER and unsupported provider types are UNCLASSIFIED; subtype is never used to infer a class',
+                        },
+                        ...allocationGroup,
+                      },
+                    },
+                  },
+                  byInstitution: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: [
+                        'institutionName',
+                        'amount',
+                        'percentage',
+                        'positions',
+                      ],
+                      properties: {
+                        institutionName: {
+                          type: 'string',
+                          nullable: true,
+                          description:
+                            'Null means institution not supplied; known names are grouped exactly as received',
+                        },
+                        ...allocationGroup,
+                      },
+                    },
+                  },
+                },
               },
             },
           },

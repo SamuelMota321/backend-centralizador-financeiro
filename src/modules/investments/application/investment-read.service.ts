@@ -10,6 +10,21 @@ export class InvestmentNotFound extends Error {
 }
 
 const FRESHNESS_MS = 96 * 60 * 60 * 1000;
+const ASSET_CLASSES = new Set([
+  'FIXED_INCOME',
+  'EQUITY',
+  'ETF',
+  'MUTUAL_FUND',
+  'COE',
+  'SECURITY',
+]);
+type AllocationPosition = ReturnType<typeof toPosition>;
+type EligiblePosition = { position: AllocationPosition; amountCents: bigint };
+type ExclusionReason =
+  | 'incomplete_or_stale'
+  | 'non_active'
+  | 'non_positive_balance'
+  | 'unknown_currency';
 
 export class InvestmentReadService {
   constructor(
@@ -18,7 +33,7 @@ export class InvestmentReadService {
   ) {}
 
   async list(context: TenantContext, page: number, pageSize: number) {
-    // shortcut: totals read all authorized positions; move aggregation to SQL if portfolios become large.
+    // shortcut: totals and allocation read all authorized positions; move aggregation to SQL if portfolios become large.
     const collections = await this.repository.collections(context);
     const now = this.now();
     const positions = collections.flatMap((collection) =>
@@ -80,6 +95,7 @@ export class InvestmentReadService {
             ? references.sort()[0]
             : null,
         connections: coverage,
+        allocation: allocation(positions, portfolioAvailability),
       },
       positions: positions.slice((page - 1) * pageSize, page * pageSize),
       page,
@@ -125,6 +141,118 @@ export class InvestmentReadService {
   }
 }
 
+function allocation(
+  positions: readonly AllocationPosition[],
+  portfolioAvailability: 'complete' | 'partial' | 'unavailable',
+) {
+  const excludedByReason: Record<ExclusionReason, number> = {
+    incomplete_or_stale: 0,
+    non_active: 0,
+    non_positive_balance: 0,
+    unknown_currency: 0,
+  };
+  const byCurrency = new Map<string, EligiblePosition[]>();
+  let includedPositionCount = 0;
+  for (const position of positions) {
+    const amountCents = cents(position.balance);
+    const reason: ExclusionReason | null =
+      position.dataQuality.availability !== 'complete' ||
+      position.dataQuality.freshness !== 'current'
+        ? 'incomplete_or_stale'
+        : position.providerStatus !== 'ACTIVE'
+          ? 'non_active'
+          : amountCents <= 0n
+            ? 'non_positive_balance'
+            : !position.currencyCode
+              ? 'unknown_currency'
+              : null;
+    if (reason) {
+      excludedByReason[reason]++;
+      continue;
+    }
+    const currency = position.currencyCode!;
+    const group = byCurrency.get(currency) ?? [];
+    group.push({ position, amountCents });
+    byCurrency.set(currency, group);
+    includedPositionCount++;
+  }
+  const currencies = [...byCurrency].map(([currencyCode, eligible]) => {
+    const denominator = eligible.reduce(
+      (sum, item) => sum + item.amountCents,
+      0n,
+    );
+    return {
+      currencyCode,
+      denominatorAmount: money(denominator),
+      byClass: groups(eligible, denominator, (item) =>
+        ASSET_CLASSES.has(item.position.assetType)
+          ? item.position.assetType
+          : 'UNCLASSIFIED',
+      ).map(({ key, ...group }) => ({ assetClass: key, ...group })),
+      byInstitution: groups(
+        eligible,
+        denominator,
+        (item) => item.position.institutionName || null,
+      ).map(({ key, ...group }) => ({ institutionName: key, ...group })),
+    };
+  });
+  return {
+    basis: 'active_current_complete_positive_balance',
+    availability:
+      currencies.length === 0
+        ? 'unavailable'
+        : portfolioAvailability === 'complete' &&
+            includedPositionCount === positions.length
+          ? 'complete'
+          : 'partial',
+    knownPositionCount: positions.length,
+    includedPositionCount,
+    excludedKnownPositionCount: positions.length - includedPositionCount,
+    excludedByReason,
+    currencies,
+  };
+}
+
+function groups(
+  eligible: readonly EligiblePosition[],
+  denominator: bigint,
+  keyOf: (item: EligiblePosition) => string | null,
+) {
+  const grouped = new Map<
+    string | null,
+    {
+      amountCents: bigint;
+      positions: Array<{
+        id: string;
+        source: 'pluggy';
+        referenceDate: string | null;
+      }>;
+    }
+  >();
+  for (const item of eligible) {
+    const key = keyOf(item);
+    const group = grouped.get(key) ?? { amountCents: 0n, positions: [] };
+    group.amountCents += item.amountCents;
+    group.positions.push({
+      id: item.position.id,
+      source: item.position.source,
+      referenceDate: item.position.referenceDate,
+    });
+    grouped.set(key, group);
+  }
+  return [...grouped].map(([key, group]) => ({
+    key,
+    amount: money(group.amountCents),
+    percentage: percentage(group.amountCents, denominator),
+    positions: group.positions,
+  }));
+}
+
+function percentage(amount: bigint, denominator: bigint): string {
+  const tenths = (amount * 2000n + denominator) / (2n * denominator);
+  return `${tenths / 10n}.${tenths % 10n}`;
+}
+
 function availability(collection: CollectionRecord) {
   if (!collection.authorized || !collection.completeRunId) return 'unavailable';
   return collection.latestRunId === collection.completeRunId
@@ -150,7 +278,7 @@ function toPosition(
   const view = {
     id: position.id,
     connectionId: position.connectionId,
-    source: 'pluggy',
+    source: 'pluggy' as const,
     externalId: position.externalId,
     name: position.name,
     assetType: position.assetType,
