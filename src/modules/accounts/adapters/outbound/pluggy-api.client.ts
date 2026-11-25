@@ -43,8 +43,8 @@ const consentResponseSchema = z.object({
   products: z.array(z.string()),
   openFinancePermissionsGranted: z.array(z.string()).optional().default([]),
   createdAt: z.iso.datetime(),
-  expiresAt: z.iso.datetime().nullable(),
-  revokedAt: z.iso.datetime().nullable(),
+  expiresAt: z.iso.datetime().nullable().optional(),
+  revokedAt: z.iso.datetime().nullable().optional(),
 });
 const consentsResponseSchema = z.object({
   results: z.array(consentResponseSchema),

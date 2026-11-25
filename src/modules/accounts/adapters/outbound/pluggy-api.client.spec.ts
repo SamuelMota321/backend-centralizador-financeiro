@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
 import type { Environment } from '../../../../config/environment.schema.js';
-import { PluggyApiClient } from './pluggy-api.client.js';
+import { PluggyApiClient, PluggyUnavailable } from './pluggy-api.client.js';
+
+const consentItemId = 'f5bf5605-0eba-4a11-9956-088c49068b0b';
+const consentDate = '2026-10-12T11:22:12.855Z';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -170,7 +173,70 @@ describe('PluggyApiClient', () => {
       amount: null,
     });
   });
+
+  it.each([
+    ['both omitted', {}, null, null],
+    ['only expiresAt', { expiresAt: consentDate }, new Date(consentDate), null],
+    ['only revokedAt', { revokedAt: consentDate }, null, new Date(consentDate)],
+    ['both null', { expiresAt: null, revokedAt: null }, null, null],
+    [
+      'both present',
+      { expiresAt: consentDate, revokedAt: consentDate },
+      new Date(consentDate),
+      new Date(consentDate),
+    ],
+  ] as const)(
+    'normalizes optional consent dates (%s)',
+    async (_case, fields, expiresAt, revokedAt) => {
+      const client = clientWithConsentResponse(fields);
+
+      await expect(client.listConsents(consentItemId)).resolves.toMatchObject([
+        { expiresAt, revokedAt },
+      ]);
+    },
+  );
+
+  it.each([
+    { expiresAt: 'invalid' },
+    { revokedAt: 10 },
+    { products: undefined },
+  ])('rejects invalid consent fields %j', async (fields) => {
+    const client = clientWithConsentResponse(fields);
+
+    await expect(client.listConsents(consentItemId)).rejects.toThrow(
+      PluggyUnavailable,
+    );
+  });
 });
+
+function clientWithConsentResponse(
+  fields: Record<string, unknown>,
+): PluggyApiClient {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string) =>
+      Promise.resolve(
+        url.endsWith('/auth')
+          ? Response.json({ apiKey: 'fixture-api-key' })
+          : Response.json({
+              results: [
+                {
+                  id: '364aa078-983d-4f3d-a28e-fb5575ddc3ee',
+                  itemId: consentItemId,
+                  products: ['ACCOUNTS'],
+                  createdAt: consentDate,
+                  ...fields,
+                },
+              ],
+            }),
+      ),
+    ),
+  );
+  const config = {
+    get: () => 'fixture-client-credential',
+  } as unknown as ConfigService<Environment, true>;
+  return new PluggyApiClient(config);
+}
 
 function parseBody(body: RequestInit['body'] | undefined): unknown {
   if (typeof body !== 'string') throw new Error('Expected a JSON string body.');
