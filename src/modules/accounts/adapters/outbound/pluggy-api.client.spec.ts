@@ -238,9 +238,29 @@ describe('PluggyApiClient', () => {
   );
 
   it.each([
+    ['omitted', {}, []],
+    ['null', { openFinancePermissionsGranted: null }, []],
+    [
+      'present',
+      { openFinancePermissionsGranted: ['ACCOUNTS_ALL'] },
+      ['ACCOUNTS_ALL'],
+    ],
+  ] as const)(
+    'normalizes optional Open Finance permissions (%s)',
+    async (_case, fields, permissions) => {
+      const client = clientWithConsentResponse(fields);
+
+      await expect(client.listConsents(consentItemId)).resolves.toMatchObject([
+        { openFinancePermissionsGranted: permissions },
+      ]);
+    },
+  );
+
+  it.each([
     { expiresAt: 'invalid' },
     { revokedAt: 10 },
     { products: undefined },
+    { openFinancePermissionsGranted: 'invalid' },
   ])('rejects invalid consent fields %j', async (fields) => {
     const client = clientWithConsentResponse(fields);
 
