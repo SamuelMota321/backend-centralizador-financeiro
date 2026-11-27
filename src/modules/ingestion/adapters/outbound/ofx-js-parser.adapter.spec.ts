@@ -88,6 +88,27 @@ describe('OfxJsParserAdapter', () => {
   });
 
   it.each([
+    ['Windows-1252 bytes', 'ofx-1-bank-windows-1252.ofx', 'Padaria João'],
+    ['comma decimal amount', 'ofx-1-bank-comma-decimal.ofx', 'Padaria'],
+    [
+      'CHARSET:NONE with BOM and sign-on',
+      'ofx-1-bank-charset-none-bom.ofx',
+      'Padaria',
+    ],
+  ])('accepts %s', (_label, fixture, description) => {
+    const content = readFileSync(
+      new URL(`../../../../../test/fixtures/ofx/${fixture}`, import.meta.url),
+    );
+    const result = parser.parse(content);
+    expect(result.transactions).toHaveLength(1);
+    expect(result.transactions[0]).toMatchObject({
+      amount: '25.90',
+      type: 'expense',
+      description,
+    });
+  });
+
+  it.each([
     ['unsupported charset', 'unsupported-charset.ofx'],
     ['malformed OFX', 'malformed.ofx'],
   ])('rejects %s before yielding parsed rows', (_label, fixture) => {
@@ -99,7 +120,10 @@ describe('OfxJsParserAdapter', () => {
 
   it('rejects PDF content as an unsupported media type', () => {
     const content = readFileSync(
-      new URL('../../../../../test/fixtures/ofx/unsupported-pdf.pdf', import.meta.url),
+      new URL(
+        '../../../../../test/fixtures/ofx/unsupported-pdf.pdf',
+        import.meta.url,
+      ),
     );
     expect(() => parser.parse(content)).toThrow(UnsupportedOfxMediaType);
   });

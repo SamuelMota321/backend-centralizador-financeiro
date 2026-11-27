@@ -13,6 +13,17 @@ import type { OfxParser } from '../../application/ports/ofx-parser.port.js';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_CENTS = 9_999_999_999_999_999_999n;
+const SUPPORTED_DECLARATIONS = new Set([
+  'ASCII',
+  'USASCII',
+  'UTF-8',
+  'NONE',
+  '1252',
+  'WINDOWS-1252',
+  'CP1252',
+  'ISO-8859-1',
+  'LATIN1',
+]);
 const ALLOWED_TRANSACTION_TYPES = new Set([
   'CREDIT',
   'DEBIT',
@@ -91,7 +102,8 @@ function decodeSupportedText(content: Uint8Array): string {
       .decode(content)
       .replace(/^\uFEFF/u, '');
   } catch {
-    throw new InvalidOfxFile('Only ASCII and UTF-8 OFX content is supported.');
+    // Brazilian banks often export SGML OFX in Windows-1252 / Latin-1.
+    return new TextDecoder('windows-1252').decode(content);
   }
 }
 
@@ -126,13 +138,21 @@ function validateEncodingDeclaration(
   const declarations = [encoding, charset, xmlEncoding]
     .filter((value): value is string => value !== undefined)
     .map((value) => value.toUpperCase().replaceAll('_', '-'));
-  if (
-    declarations.some((value) => !['ASCII', 'USASCII', 'UTF-8'].includes(value))
-  ) {
-    throw new InvalidOfxFile('Only ASCII and UTF-8 OFX content is supported.');
+  if (declarations.some((value) => !SUPPORTED_DECLARATIONS.has(value))) {
+    throw new InvalidOfxFile(
+      'Only ASCII, UTF-8 and Windows-1252/Latin-1 OFX content is supported.',
+    );
   }
+  // In OFX 1.x, ENCODING:USASCII is the transport declaration; CHARSET says
+  // how bytes are read. A real 8-bit CHARSET (e.g. 1252) wins over it.
+  const normalize = (value: string | undefined) =>
+    value?.toUpperCase().replaceAll('_', '-');
+  const declaredCharset = [charset, xmlEncoding]
+    .map(normalize)
+    .find((value) => value !== undefined && value !== 'NONE');
+  const effective = declaredCharset ?? normalize(encoding);
   if (
-    declarations.some((value) => value === 'ASCII' || value === 'USASCII') &&
+    (effective === 'ASCII' || effective === 'USASCII') &&
     content.some((byte) => byte > 0x7f)
   ) {
     throw new InvalidOfxFile('ASCII OFX content contains non-ASCII bytes.');
@@ -262,7 +282,9 @@ function parsePostedDate(value: string): string {
 function parseAmount(
   value: string,
 ): Readonly<{ amount: string; negative: boolean }> {
-  const match = value.match(/^([+-]?)(\d+)(?:\.(\d{1,2}))?$/u);
+  const match = value
+    .replace(/^([+-]?\d+),(\d{1,2})$/u, '$1.$2')
+    .match(/^([+-]?)(\d+)(?:\.(\d{1,2}))?$/u);
   if (!match) throw new InvalidOfxFile('Statement amount is invalid.');
   const integer = (match[2] ?? '').replace(/^0+(?=\d)/u, '');
   if (integer.length > 17) {
