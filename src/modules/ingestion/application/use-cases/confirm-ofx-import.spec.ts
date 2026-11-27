@@ -52,24 +52,26 @@ describe('ConfirmOfxImport', () => {
   it('persists each new transaction through the importer and returns terminal counts', async () => {
     const processing = details('processing');
     const completed = details('completed');
-    const saveItemResult = vi.fn(() => Promise.resolve());
+    const saveItemResults = vi.fn(() => Promise.resolve());
     const deleteSource = vi.fn(() => Promise.resolve());
     const importTransaction = vi.fn(() =>
-      Promise.resolve({
-        disposition: 'imported' as const,
-        transactionId: randomUUID(),
-      }),
+      Promise.resolve([
+        {
+          disposition: 'imported' as const,
+          transactionId: randomUUID(),
+        },
+      ]),
     );
     const repository: IngestionRepository = {
       createPreview: vi.fn(),
       findRun: vi.fn(),
       startConfirmation: vi.fn(() => Promise.resolve(processing)),
-      saveItemResult,
+      saveItemResults,
       finishRun: vi.fn(() => Promise.resolve(completed)),
       transitionRun: vi.fn(),
     };
     const importer: OfxTransactionImporter = {
-      import: importTransaction,
+      importMany: importTransaction,
     };
     const sourceObjectStore: OfxSourceObjectStore = {
       put: vi.fn(),
@@ -84,12 +86,9 @@ describe('ConfirmOfxImport', () => {
 
     expect(result).toEqual(completed);
     expect(importTransaction).toHaveBeenCalledOnce();
-    expect(saveItemResult).toHaveBeenCalledWith(
-      context,
-      importRunId,
-      1,
-      expect.objectContaining({ status: 'imported', isDuplicate: false }),
-    );
+    expect(saveItemResults).toHaveBeenCalledWith(context, importRunId, [
+      expect.objectContaining({ ordinal: 1, status: 'imported', isDuplicate: false }),
+    ]);
     expect(deleteSource).toHaveBeenCalledWith(sourceObjectReference);
   });
 
@@ -100,21 +99,21 @@ describe('ConfirmOfxImport', () => {
       .fn<IngestionRepository['startConfirmation']>()
       .mockResolvedValueOnce(processing)
       .mockResolvedValueOnce(completed);
-    const saveItemResult = vi.fn(() => Promise.resolve());
+    const saveItemResults = vi.fn(() => Promise.resolve());
     const deleteSource = vi.fn(() => Promise.resolve());
     const importTransaction = vi.fn(() =>
-      Promise.resolve({ disposition: 'duplicate' as const }),
+      Promise.resolve([{ disposition: 'duplicate' as const }]),
     );
     const repository: IngestionRepository = {
       createPreview: vi.fn(),
       findRun: vi.fn(),
       startConfirmation,
-      saveItemResult,
+      saveItemResults,
       finishRun: vi.fn(() => Promise.resolve(completed)),
       transitionRun: vi.fn(),
     };
     const importer: OfxTransactionImporter = {
-      import: importTransaction,
+      importMany: importTransaction,
     };
     const sourceObjectStore: OfxSourceObjectStore = {
       put: vi.fn(),
@@ -126,12 +125,57 @@ describe('ConfirmOfxImport', () => {
     await useCase.execute(context, importRunId, destinationAccountId, 'confirm-key');
 
     expect(importTransaction).toHaveBeenCalledOnce();
-    expect(saveItemResult).toHaveBeenCalledWith(
+    expect(saveItemResults).toHaveBeenCalledWith(context, importRunId, [
+      expect.objectContaining({ ordinal: 1, status: 'ignored_duplicate', isDuplicate: true }),
+    ]);
+    expect(deleteSource).toHaveBeenCalledTimes(2);
+  });
+
+  it('imports in batches of 25 and records a per-line failure without stopping the rest', async () => {
+    const base = details('processing');
+    const template = base.items[0]!;
+    const items = Array.from({ length: 30 }, (_, index) => ({
+      ...template,
+      ordinal: index + 1,
+      externalId: `fitid-${index + 1}`,
+    }));
+    const processing = { ...base, run: { ...base.run, totalItems: 30 }, items };
+    const completed = details('completed');
+    const saveItemResults = vi.fn<IngestionRepository['saveItemResults']>(() => Promise.resolve());
+    const importMany = vi.fn((_context: TenantContext, inputs: readonly unknown[]) =>
+      Promise.resolve(
+        inputs.map((_, index) =>
+          index === 0
+            ? { disposition: 'failed' as const, errorCode: 'invalid_request' as const }
+            : { disposition: 'imported' as const, transactionId: randomUUID() },
+        ),
+      ),
+    );
+    const repository: IngestionRepository = {
+      createPreview: vi.fn(),
+      findRun: vi.fn(),
+      startConfirmation: vi.fn(() => Promise.resolve(processing)),
+      saveItemResults,
+      finishRun: vi.fn(() => Promise.resolve(completed)),
+      transitionRun: vi.fn(),
+    };
+    const sourceObjectStore: OfxSourceObjectStore = {
+      put: vi.fn(),
+      delete: vi.fn(() => Promise.resolve()),
+    };
+
+    await new ConfirmOfxImport(repository, { importMany }, sourceObjectStore).execute(
       context,
       importRunId,
-      1,
-      expect.objectContaining({ status: 'ignored_duplicate', isDuplicate: true }),
+      destinationAccountId,
+      'confirm-key',
     );
-    expect(deleteSource).toHaveBeenCalledTimes(2);
+
+    expect(importMany.mock.calls.map(([, inputs]) => inputs.length)).toEqual([25, 5]);
+    expect(saveItemResults).toHaveBeenCalledTimes(2);
+    const firstBatch = saveItemResults.mock.calls[0]?.[2] ?? [];
+    expect(firstBatch).toHaveLength(25);
+    expect(firstBatch[0]).toMatchObject({ ordinal: 1, status: 'failed', errorCode: 'invalid_request' });
+    expect(firstBatch[1]).toMatchObject({ ordinal: 2, status: 'imported' });
   });
 });

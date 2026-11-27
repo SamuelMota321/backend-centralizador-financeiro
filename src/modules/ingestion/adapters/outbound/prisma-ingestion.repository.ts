@@ -273,27 +273,37 @@ export class PrismaIngestionRepository implements IngestionRepository {
     });
   }
 
-  async saveItemResult(
+  async saveItemResults(
     context: TenantContext,
     importRunId: string,
-    ordinal: number,
-    result: IngestionItemState,
+    results: readonly IngestionItemState[],
   ): Promise<void> {
+    if (results.length === 0) return;
+    // Linhas com o mesmo desfecho viram um unico UPDATE (por `ordinal IN (...)`).
+    const groups = new Map<string, { result: IngestionItemState; ordinals: number[] }>();
+    for (const result of results) {
+      const key = `${result.status}|${result.isDuplicate}|${result.errorCode}`;
+      const group = groups.get(key);
+      if (group) group.ordinals.push(result.ordinal);
+      else groups.set(key, { result, ordinals: [result.ordinal] });
+    }
     await this.tenantTransaction.run(context, async (transaction) => {
-      await transaction.ingestionItem.updateMany({
-        where: {
-          tenantId: context.tenantId,
-          importRunId,
-          ordinal,
-          status: PrismaIngestionItemStatus.PREVIEWED,
-        },
-        data: {
-          status: TO_PRISMA_ITEM_STATUS[result.status],
-          isDuplicate: result.isDuplicate,
-          errorCode: result.errorCode,
-          updatedAt: new Date(),
-        },
-      });
+      for (const { result, ordinals } of groups.values()) {
+        await transaction.ingestionItem.updateMany({
+          where: {
+            tenantId: context.tenantId,
+            importRunId,
+            ordinal: { in: ordinals },
+            status: PrismaIngestionItemStatus.PREVIEWED,
+          },
+          data: {
+            status: TO_PRISMA_ITEM_STATUS[result.status],
+            isDuplicate: result.isDuplicate,
+            errorCode: result.errorCode,
+            updatedAt: new Date(),
+          },
+        });
+      }
     });
   }
 

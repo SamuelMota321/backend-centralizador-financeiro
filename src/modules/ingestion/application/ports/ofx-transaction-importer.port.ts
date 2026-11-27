@@ -15,9 +15,17 @@ export type OfxTransactionImportResult =
   | Readonly<{ disposition: 'imported'; transactionId: string }>
   | Readonly<{ disposition: 'duplicate' }>;
 
+export type OfxTransactionBatchOutcome =
+  | OfxTransactionImportResult
+  | Readonly<{
+      disposition: 'failed';
+      errorCode: 'account_not_found' | 'account_archived' | 'invalid_request';
+    }>;
+
 export interface OfxTransactionImporter {
-  import(
+  /** Importa um lote da mesma conta; a resposta segue a ordem da entrada. */
+  importMany(
     context: TenantContext,
-    input: OfxTransactionImportInput,
-  ): Promise<OfxTransactionImportResult>;
+    inputs: readonly OfxTransactionImportInput[],
+  ): Promise<OfxTransactionBatchOutcome[]>;
 }

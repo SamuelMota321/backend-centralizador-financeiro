@@ -65,7 +65,7 @@ function createUseCase() {
     createPreview,
     findRun: vi.fn(),
     startConfirmation: vi.fn(),
-    saveItemResult: vi.fn(),
+    saveItemResults: vi.fn(),
     finishRun: vi.fn(),
     transitionRun: vi.fn(),
   };

@@ -41,11 +41,11 @@ export interface IngestionRepository {
     idempotencyKey: string,
     payloadHash: string,
   ): Promise<ImportRunDetails>;
-  saveItemResult(
+  /** Grava o resultado de varias linhas de uma vez, em uma transacao. */
+  saveItemResults(
     context: TenantContext,
     importRunId: string,
-    ordinal: number,
-    result: IngestionItemState,
+    results: readonly IngestionItemState[],
   ): Promise<void>;
   finishRun(context: TenantContext, importRunId: string): Promise<ImportRunDetails>;
   transitionRun(

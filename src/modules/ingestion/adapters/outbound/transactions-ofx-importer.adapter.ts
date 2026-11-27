@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type { TenantContext } from '../../../../shared/application/tenant-context.js';
 import { ImportOfxTransaction } from '../../../transactions/application/use-cases/import-ofx-transaction.js';
 import type {
+  OfxTransactionBatchOutcome,
   OfxTransactionImportInput,
-  OfxTransactionImportResult,
   OfxTransactionImporter,
 } from '../../application/ports/ofx-transaction-importer.port.js';
 
@@ -11,10 +11,10 @@ import type {
 export class TransactionsOfxImporterAdapter implements OfxTransactionImporter {
   constructor(private readonly importOfxTransaction: ImportOfxTransaction) {}
 
-  import(
+  importMany(
     context: TenantContext,
-    input: OfxTransactionImportInput,
-  ): Promise<OfxTransactionImportResult> {
-    return this.importOfxTransaction.execute(context, input);
+    inputs: readonly OfxTransactionImportInput[],
+  ): Promise<OfxTransactionBatchOutcome[]> {
+    return this.importOfxTransaction.executeMany(context, inputs);
   }
 }
