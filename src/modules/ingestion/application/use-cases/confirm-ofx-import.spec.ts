@@ -131,21 +131,21 @@ describe('ConfirmOfxImport', () => {
     expect(deleteSource).toHaveBeenCalledTimes(2);
   });
 
-  it('imports in batches of 25 and records a per-line failure without stopping the rest', async () => {
+  it('processes fourteen lines in batches and records a failure without stopping the rest', async () => {
     const base = details('processing');
     const template = base.items[0]!;
-    const items = Array.from({ length: 30 }, (_, index) => ({
+    const items = Array.from({ length: 14 }, (_, index) => ({
       ...template,
       ordinal: index + 1,
       externalId: `fitid-${index + 1}`,
     }));
-    const processing = { ...base, run: { ...base.run, totalItems: 30 }, items };
+    const processing = { ...base, run: { ...base.run, totalItems: items.length }, items };
     const completed = details('completed');
     const saveItemResults = vi.fn<IngestionRepository['saveItemResults']>(() => Promise.resolve());
-    const importMany = vi.fn((_context: TenantContext, inputs: readonly unknown[]) =>
+    const importMany = vi.fn<OfxTransactionImporter['importMany']>((_context, inputs) =>
       Promise.resolve(
-        inputs.map((_, index) =>
-          index === 0
+        inputs.map((input) =>
+          input.externalId === 'fitid-1'
             ? { disposition: 'failed' as const, errorCode: 'invalid_request' as const }
             : { disposition: 'imported' as const, transactionId: randomUUID() },
         ),
@@ -171,11 +171,12 @@ describe('ConfirmOfxImport', () => {
       'confirm-key',
     );
 
-    expect(importMany.mock.calls.map(([, inputs]) => inputs.length)).toEqual([25, 5]);
-    expect(saveItemResults).toHaveBeenCalledTimes(2);
-    const firstBatch = saveItemResults.mock.calls[0]?.[2] ?? [];
-    expect(firstBatch).toHaveLength(25);
-    expect(firstBatch[0]).toMatchObject({ ordinal: 1, status: 'failed', errorCode: 'invalid_request' });
-    expect(firstBatch[1]).toMatchObject({ ordinal: 2, status: 'imported' });
+    expect(importMany.mock.calls.map(([, inputs]) => inputs.length)).toEqual([5, 5, 4]);
+    const savedBatches = saveItemResults.mock.calls.map(([, , batch]) => batch);
+    expect(savedBatches.map((batch) => batch.length)).toEqual([5, 5, 4]);
+    const savedItems = savedBatches.flat();
+    expect(savedItems.map((item) => item.ordinal)).toEqual(items.map((item) => item.ordinal));
+    expect(savedItems[0]).toMatchObject({ ordinal: 1, status: 'failed', errorCode: 'invalid_request' });
+    expect(savedItems.slice(1).every((item) => item.status === 'imported')).toBe(true);
   });
 });

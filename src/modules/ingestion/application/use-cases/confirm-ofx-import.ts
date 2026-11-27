@@ -9,8 +9,8 @@ import type { IngestionRepository } from '../ports/ingestion.repository.port.js'
 import type { OfxSourceObjectStore } from '../ports/ofx-source-object-store.port.js';
 import type { OfxTransactionImporter } from '../ports/ofx-transaction-importer.port.js';
 
-/** Linhas por transacao. Abaixo do limite de 5 s da transacao interativa, com folga para banco remoto. */
-const IMPORT_BATCH_SIZE = 25;
+/** Each new row performs three sequential database operations within Prisma's transaction deadline. */
+const IMPORT_BATCH_SIZE = 5;
 
 export class ConfirmOfxImport {
   constructor(

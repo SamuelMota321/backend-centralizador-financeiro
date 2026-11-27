@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { ZodError, type ZodIssue } from 'zod';
+import { Prisma } from '../../../../generated/prisma/client.js';
 import { IdentityContextUnavailable } from '../../../identity/domain/identity.errors.js';
 import {
   TransactionAccountArchived,
@@ -150,6 +151,13 @@ export class IngestionProblemDetailsFilter implements ExceptionFilter {
   }
 
   private logSanitized(exception: unknown): void {
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      this.logger.error(
+        JSON.stringify({ name: exception.name, code: exception.code }),
+      );
+      return;
+    }
+
     this.logger.error(
       exception instanceof Error ? exception.name : 'Unknown ingestion error',
     );
