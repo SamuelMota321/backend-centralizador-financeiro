@@ -419,6 +419,8 @@ function createFixture(
         createdTransactions.find(({ id }) => id === transaction.snapshot?.id) ??
           (transaction as never),
       ),
+    findUnclassifiedInPeriod: () => Promise.resolve([]),
+    categorizeByRule: () => Promise.resolve(0),
   };
 
   const idempotency: TenantIdempotencyRepository = {

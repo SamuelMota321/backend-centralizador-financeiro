@@ -90,6 +90,10 @@ export const categoryRuleUpdateInputSchema = z
     message: 'EMPTY_PATCH',
   });
 
+export const applyCategoryRuleInputSchema = z
+  .object({ from: civilDateSchema, to: civilDateSchema })
+  .strict();
+
 export const noBodySchema = z.undefined();
 
 export type TransactionInput = z.infer<typeof transactionInputSchema>;

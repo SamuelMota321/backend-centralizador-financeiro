@@ -38,6 +38,8 @@ describe('FindOfxTransactionDuplicates', () => {
       count: vi.fn(),
       findPage: vi.fn(),
       update: vi.fn(),
+      findUnclassifiedInPeriod: vi.fn(() => Promise.resolve([])),
+      categorizeByRule: vi.fn(() => Promise.resolve(0)),
     };
     const scope = { transactions } as TransactionPersistenceScope;
     const repository: TransactionsRepository = {

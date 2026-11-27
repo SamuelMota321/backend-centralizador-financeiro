@@ -19,6 +19,7 @@ import { CreateCategory } from '../src/modules/transactions/application/use-case
 import { CreateCategoryRule } from '../src/modules/transactions/application/use-cases/create-category-rule.js';
 import { CreateManualTransaction } from '../src/modules/transactions/application/use-cases/create-manual-transaction.js';
 import { DeactivateCategory } from '../src/modules/transactions/application/use-cases/deactivate-category.js';
+import { ApplyCategoryRule } from '../src/modules/transactions/application/use-cases/apply-category-rule.js';
 import { CategoryRuleLifecycle } from '../src/modules/transactions/application/use-cases/category-rule-lifecycle.js';
 import { ListCategories } from '../src/modules/transactions/application/use-cases/list-categories.js';
 import { ListCategoryRules } from '../src/modules/transactions/application/use-cases/list-category-rules.js';
@@ -137,6 +138,11 @@ const updateCategoryRule: Pick<UpdateCategoryRule, 'execute'> = {
 };
 
 const categoryRuleLifecycle: Pick<CategoryRuleLifecycle, 'execute'> = {
+  execute: () =>
+    Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
+};
+
+const applyCategoryRule: Pick<ApplyCategoryRule, 'execute'> = {
   execute: () =>
     Promise.reject(new Error('OpenAPI generation does not execute use cases.')),
 };
@@ -261,6 +267,7 @@ const resolveIdentityContext: Pick<ResolveIdentityContext, 'execute'> = {
     { provide: CreateCategoryRule, useValue: createCategoryRule },
     { provide: UpdateCategoryRule, useValue: updateCategoryRule },
     { provide: CategoryRuleLifecycle, useValue: categoryRuleLifecycle },
+    { provide: ApplyCategoryRule, useValue: applyCategoryRule },
     { provide: CreateOfxImportPreview, useValue: createOfxImportPreview },
     { provide: ConfirmOfxImport, useValue: confirmOfxImport },
     { provide: GetImportRun, useValue: getImportRun },

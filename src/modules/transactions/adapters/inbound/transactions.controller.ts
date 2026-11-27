@@ -50,6 +50,10 @@ import { CreateManualTransaction } from '../../application/use-cases/create-manu
 import { DeactivateCategory } from '../../application/use-cases/deactivate-category.js';
 import { CategoryRuleLifecycle } from '../../application/use-cases/category-rule-lifecycle.js';
 import { ListCategories } from '../../application/use-cases/list-categories.js';
+import {
+  ApplyCategoryRule,
+  type ApplyCategoryRuleResult,
+} from '../../application/use-cases/apply-category-rule.js';
 import { ListCategoryRules } from '../../application/use-cases/list-category-rules.js';
 import { ListTransactions } from '../../application/use-cases/list-transactions.js';
 import { UpdateCategory } from '../../application/use-cases/update-category.js';
@@ -58,6 +62,8 @@ import { UpdateTransactionCategory } from '../../application/use-cases/update-tr
 import {
   CREATE_TRANSACTION_SCHEMA,
   CREATE_TRANSFER_SCHEMA,
+  APPLY_CATEGORY_RULE_RESULT_SCHEMA,
+  APPLY_CATEGORY_RULE_SCHEMA,
   CATEGORY_PAGE_SCHEMA,
   CATEGORY_RULE_PAGE_SCHEMA,
   CATEGORY_RULE_SCHEMA,
@@ -74,6 +80,7 @@ import {
   UPDATE_TRANSACTION_CATEGORY_SCHEMA,
 } from './transactions-openapi.schema.js';
 import {
+  applyCategoryRuleInputSchema,
   canonicalUuidSchema,
   categoryInputSchema,
   categoryRuleInputSchema,
@@ -107,6 +114,7 @@ export class TransactionsController {
     private readonly createCategoryRule: CreateCategoryRule,
     private readonly updateCategoryRule: UpdateCategoryRule,
     private readonly categoryRuleLifecycle: CategoryRuleLifecycle,
+    private readonly applyCategoryRule: ApplyCategoryRule,
   ) {}
 
   @Get('transactions')
@@ -525,6 +533,43 @@ export class TransactionsController {
       context,
       canonicalUuidSchema.parse(ruleId),
       'deactivate',
+      request.requestId,
+    );
+  }
+
+  @Post('category-rules/:ruleId/applications')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Apply one active rule to existing unclassified transactions in a period',
+  })
+  @ApiParam({ name: 'ruleId', type: String, format: 'uuid' })
+  @ApiHeader({
+    name: 'X-Request-Id',
+    required: false,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiBody({ schema: APPLY_CATEGORY_RULE_SCHEMA })
+  @ApiOkResponse({
+    schema: APPLY_CATEGORY_RULE_RESULT_SCHEMA,
+    headers: TRANSACTION_REQUEST_ID_RESPONSE_HEADERS,
+  })
+  @ApiBadRequestResponse(TRANSACTION_PROBLEM_DETAILS_RESPONSE)
+  @ApiUnauthorizedResponse(TRANSACTION_PROBLEM_DETAILS_RESPONSE)
+  @ApiForbiddenResponse(TRANSACTION_PROBLEM_DETAILS_RESPONSE)
+  @ApiNotFoundResponse(TRANSACTION_PROBLEM_DETAILS_RESPONSE)
+  @ApiConflictResponse(TRANSACTION_PROBLEM_DETAILS_RESPONSE)
+  @ApiInternalServerErrorResponse(TRANSACTION_PROBLEM_DETAILS_RESPONSE)
+  applyCategoryRuleEndpoint(
+    @CurrentTenantContext() context: TenantContext,
+    @Req() request: RequestWithId,
+    @Param('ruleId') ruleId: string,
+    @Body() body: unknown,
+  ): Promise<ApplyCategoryRuleResult> {
+    return this.applyCategoryRule.execute(
+      context,
+      canonicalUuidSchema.parse(ruleId),
+      applyCategoryRuleInputSchema.parse(body),
       request.requestId,
     );
   }

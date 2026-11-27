@@ -272,6 +272,7 @@ describe('OpenAPI contract', () => {
       ['/api/v1/category-rules/{ruleId}', 'patch', '200'],
       ['/api/v1/category-rules/{ruleId}/activate', 'post', '200'],
       ['/api/v1/category-rules/{ruleId}/deactivate', 'post', '200'],
+      ['/api/v1/category-rules/{ruleId}/applications', 'post', '200'],
       ['/api/v1/category-rules/{ruleId}', 'delete', '200'],
     ];
     for (const [path, method, successStatus] of operations) {

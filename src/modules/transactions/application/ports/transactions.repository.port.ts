@@ -35,6 +35,21 @@ export interface TenantTransactionsRepository {
   count(): Promise<number>;
   findPage(offset: number, limit: number): Promise<TransactionSnapshot[]>;
   update(transaction: Transaction): Promise<TransactionSnapshot>;
+  /**
+   * Receitas e despesas lancadas e ainda sem classificacao no periodo (datas civis, inclusive),
+   * em ordem de id, a partir de `afterId`. Nunca devolve o que ja tem categoria.
+   */
+  findUnclassifiedInPeriod(input: {
+    from: string;
+    to: string;
+    afterId: string | null;
+    limit: number;
+  }): Promise<TransactionSnapshot[]>;
+  /** Categoriza por regra, so o que ainda esta sem classificacao. Devolve quantas mudaram. */
+  categorizeByRule(
+    transactionIds: readonly string[],
+    categoryId: string,
+  ): Promise<number>;
 }
 
 export interface TenantCategoriesRepository {

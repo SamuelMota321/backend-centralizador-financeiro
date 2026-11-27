@@ -545,6 +545,50 @@ class PrismaTenantTransactionsRepository implements TenantTransactionsRepository
     if (!snapshot) throw new TransactionNotFound();
     return snapshot;
   }
+
+  async findUnclassifiedInPeriod(input: {
+    from: string;
+    to: string;
+    afterId: string | null;
+    limit: number;
+  }): Promise<TransactionSnapshot[]> {
+    const records = await this.transaction.transaction.findMany({
+      where: {
+        tenantId: this.context.tenantId,
+        status: PrismaTransactionStatus.POSTED,
+        type: {
+          in: [PrismaTransactionType.INCOME, PrismaTransactionType.EXPENSE],
+        },
+        categorizationStatus: PrismaCategorizationStatus.UNCLASSIFIED,
+        occurredOn: { gte: toDate(input.from), lte: toDate(input.to) },
+        ...(input.afterId ? { id: { gt: input.afterId } } : {}),
+      },
+      orderBy: { id: 'asc' },
+      take: input.limit,
+      select: transactionSelect,
+    });
+    return records.map(toTransactionSnapshot);
+  }
+
+  async categorizeByRule(
+    transactionIds: readonly string[],
+    categoryId: string,
+  ): Promise<number> {
+    if (transactionIds.length === 0) return 0;
+    const result = await this.transaction.transaction.updateMany({
+      where: {
+        id: { in: [...transactionIds] },
+        tenantId: this.context.tenantId,
+        categorizationStatus: PrismaCategorizationStatus.UNCLASSIFIED,
+      },
+      data: {
+        categoryId,
+        categorizationStatus: PrismaCategorizationStatus.CATEGORIZED,
+        categorizationSource: PrismaCategorizationSource.RULE,
+      },
+    });
+    return result.count;
+  }
 }
 
 class PrismaTenantCategoriesRepository implements TenantCategoriesRepository {

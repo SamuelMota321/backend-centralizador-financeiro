@@ -23,6 +23,7 @@ describe('ImportPluggyTransaction', () => {
     const scope = {
       transactions: { createIfExternalIdentityAbsent },
       audit: { write: auditWrite } satisfies AuditWriter,
+      categoryRules: { findActiveForEvaluation: () => Promise.resolve([]) },
     } as unknown as TransactionPersistenceScope;
     const unitOfWork: TransactionsUnitOfWork = {
       run: async (_context, operation) => operation(scope),
@@ -75,6 +76,7 @@ describe('ImportPluggyTransaction', () => {
           createIfExternalIdentityAbsent,
         },
         audit: { write: vi.fn(() => Promise.resolve()) },
+        categoryRules: { findActiveForEvaluation: () => Promise.resolve([]) },
       } as unknown as TransactionPersistenceScope;
       const useCase = new ImportPluggyTransaction(
         { run: async (_context, operation) => operation(scope) },

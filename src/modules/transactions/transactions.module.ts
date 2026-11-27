@@ -20,6 +20,7 @@ import { CreateCategoryRule } from './application/use-cases/create-category-rule
 import { CreateAccountingTransfer } from './application/use-cases/create-accounting-transfer.js';
 import { CreateManualTransaction } from './application/use-cases/create-manual-transaction.js';
 import { DeactivateCategory } from './application/use-cases/deactivate-category.js';
+import { ApplyCategoryRule } from './application/use-cases/apply-category-rule.js';
 import { CategoryRuleLifecycle } from './application/use-cases/category-rule-lifecycle.js';
 import { GetTransaction } from './application/use-cases/get-transaction.js';
 import { ImportOfxTransaction } from './application/use-cases/import-ofx-transaction.js';
@@ -164,6 +165,12 @@ import {
       useFactory: (unitOfWork: TransactionsUnitOfWork) =>
         new CategoryRuleLifecycle(unitOfWork),
       inject: [TRANSACTIONS_UNIT_OF_WORK],
+    },
+    {
+      provide: ApplyCategoryRule,
+      useFactory: (repository: TransactionsRepository) =>
+        new ApplyCategoryRule(repository),
+      inject: [TRANSACTIONS_REPOSITORY],
     },
     {
       provide: GetTransaction,

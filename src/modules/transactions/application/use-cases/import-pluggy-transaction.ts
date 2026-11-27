@@ -13,6 +13,11 @@ import {
   TransactionAccountNotFound,
 } from '../transactions.errors.js';
 
+import {
+  categorizeWithRules,
+  toEvaluableRules,
+} from './categorize-with-active-rules.js';
+
 export type ImportPluggyTransactionInput = Readonly<{
   connectionId: string;
   accountId: string;
@@ -87,8 +92,12 @@ export class ImportPluggyTransaction {
         if (matches > 1) return { disposition: 'ambiguous' };
         if (matches === 1) return { disposition: 'duplicate' };
       }
-      const snapshot =
-        await scope.transactions.createIfExternalIdentityAbsent(transaction);
+      const rules = toEvaluableRules(
+        await scope.categoryRules.findActiveForEvaluation(),
+      );
+      const snapshot = await scope.transactions.createIfExternalIdentityAbsent(
+        categorizeWithRules(rules, transaction),
+      );
       if (!snapshot) return { disposition: 'duplicate' };
 
       await scope.audit.write(

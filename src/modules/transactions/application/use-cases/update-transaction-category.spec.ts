@@ -148,6 +148,8 @@ function createTransactionsRepository(
     count: vi.fn(() => Promise.resolve(1)),
     findPage: vi.fn(() => Promise.resolve([snapshot])),
     update: vi.fn(() => Promise.resolve(snapshot)),
+    findUnclassifiedInPeriod: vi.fn(() => Promise.resolve([])),
+    categorizeByRule: vi.fn(() => Promise.resolve(0)),
   };
 }
 

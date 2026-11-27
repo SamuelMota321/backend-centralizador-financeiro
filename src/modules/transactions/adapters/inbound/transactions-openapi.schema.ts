@@ -330,3 +330,23 @@ export const TRANSACTIONS_OPENAPI_SCHEMAS: Record<string, SchemaObject> = {
   UpdateCategoryRule: UPDATE_CATEGORY_RULE_SCHEMA,
   CategoryRulePage: CATEGORY_RULE_PAGE_SCHEMA,
 };
+
+export const APPLY_CATEGORY_RULE_SCHEMA: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['from', 'to'],
+  properties: { from: DATE_SCHEMA, to: DATE_SCHEMA },
+};
+
+export const APPLY_CATEGORY_RULE_RESULT_SCHEMA: SchemaObject = {
+  type: 'object',
+  required: ['ruleId', 'from', 'to', 'examined', 'categorized', 'truncated'],
+  properties: {
+    ruleId: UUID_SCHEMA,
+    from: DATE_SCHEMA,
+    to: DATE_SCHEMA,
+    examined: { type: 'integer', minimum: 0 },
+    categorized: { type: 'integer', minimum: 0 },
+    truncated: { type: 'boolean' },
+  },
+};

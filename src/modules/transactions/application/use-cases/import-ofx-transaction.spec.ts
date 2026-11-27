@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { TenantContext } from '../../../../shared/application/tenant-context.js';
+import type { CategoryRuleSnapshot } from '../../domain/category-rule.js';
 import type { Transaction } from '../../domain/transaction.js';
 import type { TransactionPersistenceScope } from '../ports/transactions.repository.port.js';
 import type { TransactionsUnitOfWork } from '../ports/transactions.unit-of-work.port.js';
@@ -26,21 +27,27 @@ function line(externalId: string, overrides: Record<string, unknown> = {}) {
 function build(options: {
   state?: 'active_local' | 'missing' | 'archived_local';
   duplicates?: string[];
+  rules?: CategoryRuleSnapshot[];
 }) {
   const runs = vi.fn();
   const getOwnedImportAvailability = vi.fn(() =>
     Promise.resolve(options.state ?? 'active_local'),
   );
   const audit = vi.fn(() => Promise.resolve());
+  const created: Transaction[] = [];
   const scope = {
+    categoryRules: {
+      findActiveForEvaluation: () => Promise.resolve(options.rules ?? []),
+    },
     transactions: {
-      createIfExternalIdentityAbsent: vi.fn((transaction: Transaction) =>
-        Promise.resolve(
+      createIfExternalIdentityAbsent: vi.fn((transaction: Transaction) => {
+        created.push(transaction);
+        return Promise.resolve(
           options.duplicates?.includes(transaction.props.description ?? '')
             ? null
-            : ({ id: crypto.randomUUID() }),
-        ),
-      ),
+            : { id: crypto.randomUUID() },
+        );
+      }),
     },
     audit: { write: audit },
   } as unknown as TransactionPersistenceScope;
@@ -55,6 +62,7 @@ function build(options: {
     runs,
     getOwnedImportAvailability,
     audit,
+    created,
   };
 }
 
@@ -112,5 +120,41 @@ describe('ImportOfxTransaction.executeMany', () => {
       useCase.executeMany(context, [line('a', { accountId: 'nao-e-uuid' })]),
     ).resolves.toEqual([{ disposition: 'failed', errorCode: 'invalid_request' }]);
     expect(getOwnedImportAvailability).not.toHaveBeenCalled();
+  });
+
+  it('categorizes imported lines with the first active rule that matches', async () => {
+    const categoryId = '364aa078-983d-4f3d-a28e-fb5575ddc3ee';
+    const { useCase, created } = build({
+      rules: [
+        {
+          id: '464aa078-983d-4f3d-a28e-fb5575ddc3ee',
+          tenantId: context.tenantId,
+          categoryId,
+          conditionField: 'description',
+          conditionOperator: 'contains',
+          conditionValue: 'burguer',
+          priority: 10,
+          status: 'active',
+          removedAt: null,
+          createdAt: '2026-11-20T10:00:00.000Z',
+          updatedAt: '2026-11-20T10:00:00.000Z',
+        },
+      ],
+    });
+
+    await useCase.executeMany(context, [
+      line('a', { description: 'Burguer King' }),
+      line('b', { description: 'Padaria' }),
+    ]);
+
+    expect(created[0]?.props).toMatchObject({
+      categoryId,
+      categorizationStatus: 'categorized',
+      categorizationSource: 'rule',
+    });
+    expect(created[1]?.props).toMatchObject({
+      categoryId: null,
+      categorizationStatus: 'unclassified',
+    });
   });
 });

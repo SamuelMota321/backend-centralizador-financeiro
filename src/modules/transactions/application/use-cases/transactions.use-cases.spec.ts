@@ -104,6 +104,8 @@ function createRepository() {
     count: vi.fn(() => Promise.resolve(1)),
     findPage: vi.fn(() => Promise.resolve([transactionSnapshot])),
     update: vi.fn(() => Promise.resolve(transactionSnapshot)),
+    findUnclassifiedInPeriod: vi.fn(() => Promise.resolve([])),
+    categorizeByRule: vi.fn(() => Promise.resolve(0)),
   };
   const createCategory = vi.fn((category: Category) => {
     capturedCategory = category;

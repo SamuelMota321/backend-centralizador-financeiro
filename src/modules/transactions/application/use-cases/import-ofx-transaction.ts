@@ -13,6 +13,10 @@ import {
 import type { TransactionAccountImportEligibilityReader } from '../ports/transaction-account-import-eligibility.port.js';
 import type { TransactionsUnitOfWork } from '../ports/transactions.unit-of-work.port.js';
 import { createOfxExternalIdentityKey } from '../ofx-identity.js';
+import {
+  categorizeWithRules,
+  toEvaluableRules,
+} from './categorize-with-active-rules.js';
 
 export type ImportOfxTransactionInput = Readonly<{
   accountId: string;
@@ -76,8 +80,12 @@ export class ImportOfxTransaction {
     }
 
     return this.unitOfWork.run(context, async (scope) => {
-      const snapshot =
-        await scope.transactions.createIfExternalIdentityAbsent(transaction);
+      const rules = toEvaluableRules(
+        await scope.categoryRules.findActiveForEvaluation(),
+      );
+      const snapshot = await scope.transactions.createIfExternalIdentityAbsent(
+        categorizeWithRules(rules, transaction),
+      );
       if (!snapshot) return { disposition: 'duplicate' };
 
       await scope.audit.write(
@@ -152,9 +160,14 @@ export class ImportOfxTransaction {
     });
 
     await this.unitOfWork.run(context, async (scope) => {
+      // Uma leitura das regras por lote: cada linha importada ja chega categorizada.
+      const rules = toEvaluableRules(
+        await scope.categoryRules.findActiveForEvaluation(),
+      );
       for (const { index, transaction } of pending) {
-        const snapshot =
-          await scope.transactions.createIfExternalIdentityAbsent(transaction);
+        const snapshot = await scope.transactions.createIfExternalIdentityAbsent(
+          categorizeWithRules(rules, transaction),
+        );
         if (!snapshot) {
           outcomes[index] = { disposition: 'duplicate' };
           continue;
